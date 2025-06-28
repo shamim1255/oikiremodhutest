@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cash Money</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-analytics-compat.js"></script>
+
+    <style>
+        :root {
+            /* --- NEW Blue Theme --- */
+            --primary-bg: #0d1b2a;      /* Very Dark Blue */
+            --secondary-bg: #1b263b;    /* Dark Blue */
+            --accent-color: #3a86ff;      /* Bright Blue */
+            --text-primary: #f1faee;      /* Off-White */
+            --text-secondary: #a9d6e5;    /* Light Blue/Gray */
+            --border-color: #415a77;      /* Muted Blue/Gray */
+            --error-color: #e63946;       /* A red that fits the theme */
+            --success-color: #52b788;     /* A green that fits the theme */
+            --warning-color: #ffbe0b;     /* A yellow that fits the theme */
+            --font-family: 'Roboto', sans-serif;
+            --bottom-nav-height: 60px;
+            --header-height: 55px;
+            --info-bar-height: 30px;
+            --notice-bar-height: auto;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+            font-family: var(--font-family);
+            background-color: var(--primary-bg);
+            color: var(--text-primary);
+            font-size: 16px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .hidden { display: none !important; }
+
+        /* --- Global Loading Overlay --- */
+        #loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); z-index: 1000; display: flex; justify-content: center; align-items: center; color: white; font-size: 1.2em; backdrop-filter: blur(3px); visibility: hidden; opacity: 0; transition: opacity 0.3s, visibility 0.3s;
+        }
+        #loading-overlay.visible { visibility: visible; opacity: 1; }
+        #loading-overlay .spinner { border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: var(--accent-color); width: 30px; height: 30px; animation: spin 1s linear infinite; margin-right: 10px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- Toast Notifications --- */
+        #toast-container {
+            position: fixed; bottom: calc(var(--bottom-nav-height) + 15px); left: 50%; transform: translateX(-50%); z-index: 900; display: flex; flex-direction: column-reverse; gap: 10px; pointer-events: none; width: 90%; max-width: 320px;
+        }
+        .toast {
+            background-color: var(--secondary-bg); color: var(--text-primary); padding: 12px 18px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.3s ease-out, transform 0.3s ease-out; transform: translateY(20px); pointer-events: auto; font-size: 0.95em; display: flex; align-items: center;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast i { margin-right: 10px; font-size: 1.2em; }
+        .toast.success { border-left: 4px solid var(--success-color); }
+        .toast.error { border-left: 4px solid var(--error-color); }
+        .toast.info { border-left: 4px solid var(--accent-color); }
+
+        /* --- App Info Bar --- */
+        .app-info-bar {
+            flex-shrink: 0; background-color: var(--primary-bg); color: var(--text-secondary); padding: 0 15px; font-size: 0.8em; height: var(--info-bar-height); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color);
+        }
+        .app-info-bar.hidden { display: none; }
+
+        /* --- Dynamic Notice Bar --- */
+        #app-dynamic-notice-bar {
+            flex-shrink: 0; background-color: var(--warning-color); color: var(--primary-bg); font-weight: 500; padding: 10px 15px; font-size: 0.9em; text-align: center; border-bottom: 1px solid var(--primary-bg); line-height: 1.4; min-height: var(--notice-bar-height);
+        }
+        #app-dynamic-notice-bar.hidden { display: none; }
+
+        /* --- Authentication Styles --- */
+        #auth-view { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--primary-bg); z-index: 200; display: flex; justify-content: center; align-items: center; padding: 20px; flex-direction: column; text-align: center; transition: opacity 0.3s ease-out, visibility 0.3s ease-out; visibility: visible; opacity: 1; overflow-y: auto; }
+        #auth-view.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        .auth-container { background-color: var(--secondary-bg); padding: 30px 25px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.5); width: 100%; max-width: 380px; margin: 20px 0; }
+        .auth-container h2 { color: var(--text-primary); margin-bottom: 15px; font-weight: 700; font-size: 1.5em; }
+        .auth-container p { color: var(--text-secondary); margin-bottom: 25px; font-size: 0.9em; line-height: 1.5; }
+        .auth-step { display: none; } .auth-step.active { display: block; }
+        .auth-form .form-group { margin-bottom: 18px; text-align: left; }
+        .auth-form label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 0.85em; }
+        .auth-form input[type="text"], .auth-form input[type="email"], .auth-form input[type="password"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--primary-bg); color: var(--text-primary); font-family: var(--font-family); font-size: 1em; }
+        .auth-form input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(58, 134, 255, 0.3); }
+        .auth-form input.error { border-color: var(--error-color); }
+        .auth-error-message { color: var(--error-color); font-size: 0.85em; margin-top: 5px; text-align: left; display: none; min-height: 1.2em; }
+        .auth-form .back-link { display: block; text-align: center; margin-top: 20px; color: var(--text-secondary); font-size: 0.9em; cursor: pointer; text-decoration: underline; }
+        .auth-action-btn, .auth-form .auth-submit-btn { width: 100%; padding: 14px 20px; background-color: var(--accent-color); color: white; border: none; border-radius: 8px; font-size: 1.1em; font-weight: 600; cursor: pointer; margin-top: 10px; transition: background-color 0.2s ease, transform 0.1s ease; font-family: var(--font-family); text-align: center; }
+        .auth-action-btn:active, .auth-form .auth-submit-btn:active { transform: scale(0.98); }
+        .auth-submit-btn:disabled { background-color: var(--border-color); cursor: not-allowed; }
+        .info-notice { font-size: 0.85em; color: var(--text-secondary); margin-top: 25px; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; background-color: rgba(255, 255, 255, 0.05); text-align: center; line-height: 1.5; }
+
+        /* --- Main App Layout --- */
+        .app-container {
+            display: none; opacity: 0;
+            flex-direction: column;
+            height: 100%;
+            width: 100%; max-width: 450px; margin: 0 auto;
+            background-color: var(--primary-bg);
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            overflow: hidden;
+            position: relative;
+            transition: opacity 0.5s ease-in;
+        }
+        .app-container.visible { display: flex; opacity: 1; }
+
+        .app-header { flex-shrink: 0; background-color: var(--secondary-bg); color: var(--text-primary); padding: 15px; text-align: center; font-size: 1.3em; font-weight: 600; height: var(--header-height); z-index: 10; border-bottom: 1px solid var(--border-color); }
+
+        /* --- Content Area (SCROLLABLE) --- */
+        .content-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            background-color: var(--primary-bg);
+            -webkit-overflow-scrolling: touch;
+            min-height: 0;
+            padding-bottom: calc(var(--bottom-nav-height) + 15px);
+        }
+
+        /* --- Individual Views --- */
+        .view { display: none; padding: 15px; animation: fadeIn 0.3s ease-in-out; }
+        .view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        #view-home { padding: 15px; } 
+        #view-profile { padding: 0; }
+        #view-history { padding: 15px; }
+        #view-leaderboard { padding: 15px; }
+
+        /* --- Data List Styles (used by many views) --- */
+        .data-list { list-style: none; padding: 0; margin: 0; }
+        .data-list li {
+            background-color: var(--secondary-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            padding: 15px;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+            cursor: default;
+        }
+        .data-list li:hover {
+            transform: translateY(-2px);
+            background-color: #2a344a;
+        }
+        .data-list .item-content { flex-grow: 1; overflow: hidden; }
+        .data-list .item-name { font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 1.05em; line-height: 1.3; }
+        .data-list .item-details { color: var(--text-secondary); font-size: 0.9em; margin-bottom: 15px; line-height: 1.4; }
+        .data-list .item-actions { margin-top: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .data-list .item-actions .action-btn {
+            padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; text-decoration: none; display: inline-block; text-align: center; transition: background-color 0.2s ease;
+        }
+        .data-list .item-actions .action-btn.primary { background-color: var(--accent-color); color: white; }
+        .data-list .item-actions .action-btn.secondary { background-color: var(--success-color); color: white; }
+        .data-list .item-actions .action-btn:disabled { background-color: var(--border-color); cursor: not-allowed; opacity: 0.7; }
+        .data-list .cooldown-timer { font-size: 0.9em; color: var(--warning-color); font-weight: 500; text-align: right; }
+
+        /* --- Bottom Nav Styles --- */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; width: 100%; max-width: 450px; margin: 0 auto; height: var(--bottom-nav-height); background-color: var(--secondary-bg); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; align-items: center; z-index: 30; flex-shrink: 0; }
+        .bottom-nav button { background: none; border: none; color: var(--text-secondary); font-family: var(--font-family); font-size: 0.75em; text-align: center; cursor: pointer; padding: 8px 5px 5px 5px; flex-grow: 1; display: flex; flex-direction: column; align-items: center; transition: color 0.2s ease, transform 0.2s ease; line-height: 1.2; min-width: 0;}
+        .bottom-nav button i { font-size: 1.6em; margin-bottom: 3px; }
+        .bottom-nav button.active { color: var(--accent-color); transform: translateY(-2px); }
+
+        /* Profile View Styles */
+        #view-profile .profile-section { padding: 20px; text-align: center; }
+         #view-profile .profile-header-section {
+             padding: 20px; text-align: center;
+             border-bottom: 1px solid var(--border-color);
+             margin-bottom: 15px;
+             background: linear-gradient(180deg, var(--secondary-bg) 0%, var(--primary-bg) 100%);
+         }
+        #view-profile .profile-pic { width: 100px; height: 100px; border-radius: 50%; background-color: var(--primary-bg); overflow: hidden; display: flex; justify-content: center; align-items: center; color: var(--text-secondary); border: 3px solid var(--accent-color); margin: 0 auto 15px auto; }
+        #view-profile .profile-pic i { font-size: 3.5em; }
+        #view-profile .profile-name-container { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 5px; }
+        #view-profile .profile-name { font-size: 1.4em; font-weight: 600; color: var(--text-primary); word-break: break-word; }
+        #view-profile .profile-name-edit-input { font-size: 1.2em; font-weight: 600; color: var(--text-primary); background: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 5px; padding: 5px 10px; width: calc(80% - 70px); max-width: 200px; text-align: center; font-family: var(--font-family); }
+        #view-profile .profile-name-edit-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.9em; padding: 0; margin-top: 3px;}
+         #view-profile .profile-name-edit-actions { display: flex; gap: 5px; justify-content: center; align-items: center; margin-top: 5px;}
+         #view-profile .profile-name-edit-actions button { padding: 5px 10px; font-size: 0.8em; font-weight: 500; border-radius: 4px;}
+         #view-profile .profile-name-edit-actions .save { background-color: var(--success-color); color: white; border: none;}
+         #view-profile .profile-name-edit-actions .cancel { background-color: var(--primary-bg); color: var(--text-secondary); border: 1px solid var(--border-color);}
+
+        #view-profile .profile-email { font-size: 0.9em; color: var(--text-secondary); margin-bottom: 15px; word-break: break-all; }
+        #view-profile #display-referred-by-info { font-size: 0.9em; color: var(--text-secondary); margin-top: 10px; margin-bottom: 15px; }
+        #view-profile .profile-points { font-size: 1.2em; color: var(--success-color); font-weight: 700; margin-bottom: 5px; }
+        #view-profile .profile-points i { margin-right: 8px; }
+        #view-profile .points-conversion-info { font-size: 1em; margin-bottom: 15px; color: var(--text-secondary); }
+        #view-profile .profile-actions { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 20px; padding: 0 15px; }
+        #view-profile .profile-action-btn { background: var(--secondary-bg); border: 1px solid var(--border-color); color: var(--text-primary); padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 1em; display: block; width: 100%; max-width: 300px; text-align: center; font-family: var(--font-family); font-weight: 500; transition: background-color 0.2s ease; }
+        #view-profile .profile-action-btn i { margin-right: 8px; }
+        #view-profile .profile-action-btn:hover { background-color: var(--border-color); }
+        #view-profile .logout-btn { background: transparent; border: 1px solid var(--error-color); color: var(--error-color); margin-top: 10px; }
+        #view-profile .logout-btn:hover { background-color: rgba(230, 57, 70, 0.1); }
+        #view-profile .profile-info-box { margin: 15px; padding: 15px; border-radius: 10px; background-color: var(--secondary-bg); }
+        #view-profile .profile-info-box h4 { font-size: 1.1em; margin-bottom: 10px; color: var(--text-primary); font-weight: 500; }
+        #view-profile .profile-info-box #display-profile-referral-code { font-size: 1.2em; color: var(--accent-color); background-color: var(--primary-bg); padding: 8px 12px; border-radius: 4px; border: 1px solid var(--border-color); display: inline-block; user-select: all; word-break: break-all; }
+        #view-profile .profile-info-box #copy-referral-code-btn { width: auto; padding: 8px 12px; font-size: 0.9em; margin: 0 0 0 10px; vertical-align: middle; background-color: var(--accent-color); color: white; border: none; }
+        #view-profile .profile-info-box p { font-size: 0.85em; color: var(--text-secondary); margin-top: 10px; line-height: 1.4; }
+        #view-profile .profile-info-box #display-profile-active-time, #view-profile .profile-info-box #display-profile-referral-count { font-size: 1.2em; color: var(--accent-color); font-weight: 700; }
+        #view-profile #daily-bonus-status { font-size: 1.1em; font-weight: bold; color: var(--warning-color); }
+        #view-profile #daily-bonus-status.claimed { color: var(--success-color); }
+        #view-profile #daily-bonus-section #claim-daily-bonus-btn {
+            margin-top: 15px; padding: 10px 20px; font-size: 1em; font-weight: 600; background-color: var(--accent-color); color: white; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;
+        }
+         #view-profile #daily-bonus-section #claim-daily-bonus-btn:disabled { background-color: var(--border-color); cursor: not-allowed; }
+         .app-footer-info {
+             text-align: center; font-size: 0.75em; color: var(--text-secondary); margin-top: 20px; padding: 0 15px 15px 15px; line-height: 1.4;
+         }
+          .app-footer-info a { color: var(--accent-color); text-decoration: none; }
+          .app-footer-info a:hover { text-decoration: underline; }
+
+        /* Earn View Styles */
+        #view-earn h3, #view-earn h4 { margin-bottom: 15px; text-align: center; color: var(--text-primary); font-weight: 600; }
+        #view-earn h4 { margin-top: 25px; border-top: 1px dashed var(--border-color); padding-top: 20px; font-size: 1.1em; }
+        .video-list, .task-list { list-style: none; padding: 0; margin: 0; }
+        .video-item, .task-item { background-color: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 12px; padding: 15px; transition: background-color 0.2s ease; }
+        .video-item h5, .task-item h5 { color: var(--text-primary); margin-bottom: 8px; font-size: 1.05em; font-weight: 600; line-height: 1.3; }
+        .video-item p, .task-item p { color: var(--text-secondary); font-size: 0.9em; margin-bottom: 10px; line-height: 1.4;}
+        .video-item { cursor: pointer; }
+        .video-item:hover, .task-item:hover { background-color: #2a344a; }
+        .task-item .task-actions { margin-top: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
+        .task-item .task-link-btn, .task-item .task-complete-btn { padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; text-decoration: none; display: inline-block; text-align: center; }
+        .task-item .task-link-btn { background-color: var(--primary-bg); color: var(--text-primary); border: 1px solid var(--border-color); }
+        .task-item .task-complete-btn { background-color: var(--accent-color); color: white; }
+        .task-item .task-complete-btn:disabled { background-color: var(--border-color); cursor: not-allowed; opacity: 0.7;}
+        .task-item .status { font-size: 0.9em; font-weight: bold; margin-left: 5px; }
+        .task-item .status-approved { color: var(--success-color); }
+        .task-item .status-rejected { color: var(--error-color); }
+        .task-item .status-pending { color: var(--warning-color); }
+        #video-player-container { margin-top: 20px; position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; background-color: #000; border-radius: 8px; }
+        #video-player-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+        #video-status { margin-top: 10px; text-align: center; color: var(--accent-color); font-size: 0.9em; min-height: 1.5em; font-weight: 500; }
+        #how-to-earn-info { background-color: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; font-size: 0.9em; color: var(--text-secondary); line-height: 1.5; margin-top: 30px; }
+        #how-to-earn-info ul { list-style: disc inside; padding-left: 10px; margin-top: 10px; }
+        #how-to-earn-info li { margin-bottom: 5px; }
+
+        /* Other views (Withdraw, Quiz, History, Leaderboard) - Styles are largely compatible, only minor tweaks might be needed */
+        #view-withdraw h3, #view-quiz h3, #view-history h3, #view-leaderboard h3 { text-align: center; margin-bottom: 20px; font-weight: 600; }
+        #view-withdraw .current-points { text-align: center; margin-bottom: 15px; font-size: 1.2em; color: var(--success-color); }
+        #view-withdraw .current-points i { margin-right: 5px; }
+        .withdraw-form .form-group, #dynamic-withdrawal-fields-container .form-group { margin-bottom: 18px; }
+        .withdraw-form label, #dynamic-withdrawal-fields-container label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 0.85em; }
+        .withdraw-form input, .withdraw-form select, #dynamic-withdrawal-fields-container input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--secondary-bg); color: var(--text-primary); font-family: var(--font-family); font-size: 1em; }
+        .withdraw-form input:focus, .withdraw-form select:focus, #dynamic-withdrawal-fields-container input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(58, 134, 255, 0.3); }
+        .withdraw-info { font-size: 0.85em; color: var(--text-secondary); margin-bottom: 20px; background-color: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .withdraw-submit-btn, .withdraw-history-link-btn { width: 100%; padding: 14px 20px; background-color: var(--accent-color); color: white; border: none; border-radius: 8px; font-size: 1.1em; font-weight: 600; cursor: pointer; margin-top: 10px; text-align: center; }
+        .withdraw-submit-btn:disabled { background-color: var(--border-color); cursor: not-allowed; }
+        .withdraw-history-link-btn { background-color: var(--secondary-bg); margin-top: 25px; }
+        #leaderboard-list li { background-color: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 15px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; font-size: 1em; }
+        #leaderboard-list li .rank { font-weight: bold; color: var(--accent-color); width: 30px; text-align: center; flex-shrink: 0; margin-right: 10px; }
+        #leaderboard-list li .rank.top3 { font-size: 1.4em; }
+        #leaderboard-list li .points i { color: var(--success-color); }
+        #quiz-question-container { background-color: var(--secondary-bg); padding: 20px; border-radius: 10px; border: 1px solid var(--border-color); }
+        #quiz-options-container .quiz-option-label { display: block; margin-bottom: 10px; background-color: var(--primary-bg); border: 1px solid var(--border-color); color: var(--text-primary); padding: 12px; border-radius: 8px; cursor: pointer; transition: background-color 0.2s, border-color 0.2s; }
+        #quiz-options-container .quiz-option-label:hover { background-color: #2a344a; }
+        #quiz-options-container input[type="radio"] { display: none; }
+        #quiz-options-container input[type="radio"]:checked + .quiz-option-label { border-color: var(--accent-color); background-color: rgba(58, 134, 255, 0.15); font-weight: 500;}
+
+        /* Utility & Modal Styles */
+        .message { text-align: center; padding: 40px 20px; color: var(--text-secondary); font-style: italic; list-style-type: none; background: transparent; border: none; }
+        .loading::before { content: ''; display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: var(--accent-color); animation: spin 1s ease-in-out infinite; margin-right: 10px; vertical-align: -4px; }
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow-y: auto; background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center; backdrop-filter: blur(3px); animation: fadeInModal 0.3s ease-out; }
+        .modal.active { display: flex; }
+        @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
+        .modal-content { background-color: var(--secondary-bg); margin: auto; padding: 25px; border: 1px solid var(--border-color); width: 90%; max-width: 420px; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.5); animation: slideInModal 0.3s ease-out; max-height: 85vh; display: flex; flex-direction: column; }
+        @keyframes slideInModal { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); flex-shrink: 0;}
+        .modal-header h2 { margin: 0; font-size: 1.2em; color: var(--text-primary); }
+        .modal-close-button { color: var(--text-secondary); font-size: 1.6em; font-weight: bold; cursor: pointer; background: none; border: none; line-height: 1; padding: 0 5px; }
+        .modal-body { margin-bottom: 20px; overflow-y: auto; flex-grow: 1; -webkit-overflow-scrolling: touch; white-space: pre-wrap; word-break: break-word;}
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;}
+        .modal-footer button { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-family: var(--font-family); font-weight: 500; flex: 0 1 auto; font-size: 0.95em;}
+        .modal-footer .primary-btn { background-color: var(--accent-color); color: white; }
+        .modal-footer .secondary-btn { background-color: var(--primary-bg); color: var(--text-secondary); border: 1px solid var(--border-color); }
+
+        /* Specific Modal Styles */
+        #points-history-modal .history-item { background-color: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 15px; margin-bottom: 10px; font-size: 0.9em; line-height: 1.4; }
+        #ad-task-modal-body { min-height: 200px; display: flex; justify-content: center; align-items: center; background-color: var(--primary-bg); border-radius: 8px; position: relative; overflow: auto; }
+        #ad-task-modal-body > * { max-width: 100%; } /* Ensure ad content is responsive */
+    </style>
+</head>
+<body style="font-family: var(--font-family);">
+
+    <!-- Global Loading Overlay -->
+    <div id="loading-overlay" class="hidden">
+        <div class="spinner"></div>
+        Loading...
+    </div>
+
+     <!-- Toast Container -->
+     <div id="toast-container"></div>
+
+    <!-- Authentication -->
+    <div id="auth-view">
+        <div class="auth-container">
+             <div id="auth-initial-step" class="auth-step active">
+                 <h2>Welcome!</h2>
+                 <p>Sign up or log in to start earning.</p>
+                 <div class="button-group">
+                     <button class="auth-action-btn" onclick="showAuthStep('auth-signup-step')">Sign Up</button>
+                     <button class="auth-action-btn" onclick="showAuthStep('auth-login-step')">Log In</button>
+                 </div>
+                 <div class="info-notice" style="margin-top: 30px;">An account is required to complete tasks and earn points.</div>
+            </div>
+             <div id="auth-signup-step" class="auth-step"><h2>New Account</h2><form class="auth-form" id="signup-form" onsubmit="event.preventDefault(); handleSignup();"><div class="form-group"> <label for="signup-name">Name</label> <input type="text" id="signup-name" placeholder="Your full name" required> </div><div class="form-group"> <label for="signup-email">Email</label> <input type="email" id="signup-email" placeholder="yourname@example.com" required> </div><div class="form-group"> <label for="signup-password">Password (min. 6 characters)</label> <input type="password" id="signup-password" required minlength="6"> </div> <div class="form-group"> <label for="signup-referral-code">Referral Code (Optional)</label> <input type="text" id="signup-referral-code" placeholder="Friend's 7-digit code"> </div> <div id="signup-error" class="auth-error-message"></div><button type="submit" class="auth-submit-btn">Sign Up</button><a class="back-link" onclick="showAuthStep('auth-initial-step')">Go Back</a></form></div>
+             <div id="auth-login-step" class="auth-step"><h2>Log In</h2><form class="auth-form" id="login-form" onsubmit="event.preventDefault(); handleLogin();"><div class="form-group"> <label for="login-email">Email</label> <input type="email" id="login-email" placeholder="yourname@example.com" required> </div><div class="form-group"> <label for="login-password">Password</label> <input type="password" id="login-password" required> </div><div id="login-error" class="auth-error-message"></div><button type="submit" class="auth-submit-btn">Log In</button><a class="back-link" onclick="showAuthStep('auth-initial-step')">Go Back</a></form></div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div class="app-container hidden">
+          <header class="app-header" id="app-title-text">Cash Money</header>
+          <div id="app-dynamic-notice-bar" class="hidden"></div>
+          <div class="app-info-bar hidden">
+              <span id="active-time-display-bar">Active Time: 00:00:00</span>
+              <span id="points-currency-info-bar"></span>
+          </div>
+
+          <main class="content-area">
+              <!-- Home View for Ad Tasks -->
+              <div id="view-home" class="view">
+                  <h3 id="home-view-title" style="margin-bottom: 20px;">Ad Tasks</h3>
+                  <ul id="ad-tasks-list" class="data-list" style="padding: 0; margin: 0;">
+                      <li class="message loading">Loading Ad Tasks...</li>
+                  </ul>
+              </div>
+
+              <!-- Other Views -->
+              <div id="view-earn" class="view">
+                  <h3 id="earn-view-videos-title">Earn More by Watching Videos</h3>
+                  <ul id="video-list" class="video-list"> <li class="message loading">Loading videos...</li> </ul>
+                  <div id="video-player-container" class="hidden"> <div id="youtube-player"></div> </div>
+                  <div id="video-status"></div>
+                  <h4 id="earn-view-tasks-title">Other Tasks</h4>
+                  <ul id="task-list" class="task-list"> <li class="message loading">Loading tasks...</li> </ul>
+                   <div id="how-to-earn-info">
+                       <h4>How to Earn Points</h4>
+                        <p>There are several ways to earn points:</p>
+                        <ul>
+                            <li>Complete Ad Tasks from the Home screen.</li>
+                            <li>Earn a bonus for being active in the app for {{ACTIVE_TIME_GOAL_MINUTES}} minutes daily.</li>
+                            <li>Watch videos from the Earn screen.</li>
+                            <li>Complete other tasks from the Earn screen.</li>
+                            <li>Answer quiz questions correctly.</li>
+                            <li>Share your referral code! Earn {{REFERRER_BONUS}} points for each friend who signs up with your code, and they get {{REFEREE_BONUS}} points too.</li>
+                            <li>Claim your daily login bonus of {{DAILY_LOGIN_BONUS}} points!</li>
+                        </ul>
+                       <p style="margin-top: 10px;">Keep checking the app for new earning opportunities!</p>
+                   </div>
+              </div>
+
+              <div id="view-quiz" class="view">
+                  <h3 id="quiz-view-title">Answer & Earn</h3>
+                  <div id="quiz-question-outer-container">
+                        <div id="quiz-question-container" class="hidden">
+                            <p id="quiz-question-text"></p>
+                            <p id="quiz-question-points-info">Points: <strong id="quiz-question-points"></strong></p>
+                            <form id="quiz-options-form">
+                                <div id="quiz-options-container"></div>
+                                <button type="submit" id="quiz-submit-answer-btn" class="auth-action-btn" style="width:100%; margin-top: 10px; margin-bottom: 10px;">Submit Answer</button>
+                            </form>
+                            <button id="quiz-next-question-btn" class="auth-action-btn hidden" style="width:100%; background-color: var(--primary-bg); color: var(--text-primary); border: 1px solid var(--border-color);">Next Question</button>
+                        </div>
+                  </div>
+                  <div id="quiz-status-message" class="message" style="padding: 20px; min-height: 60px;">Loading questions...</div>
+              </div>
+
+               <div id="view-leaderboard" class="view">
+                   <h3 id="leaderboard-view-title">Top Earners</h3>
+                    <ul id="leaderboard-list">
+                       <li class="message loading">Loading leaderboard...</li>
+                   </ul>
+               </div>
+
+              <div id="view-withdraw" class="view">
+                  <h3 id="withdraw-view-title">Withdraw Points</h3>
+                  <div class="current-points">Your Points: <i class="fas fa-coins"></i> <span id="withdraw-current-points">0</span></div>
+                  <div class="points-conversion-info" id="withdraw-points-conversion-info"></div>
+                  <div class="withdraw-info" id="withdraw-general-info-text">
+                    Payments processed after admin review.
+                  </div>
+                  <form class="withdraw-form" id="withdraw-form" onsubmit="event.preventDefault(); confirmWithdrawRequest();">
+                      <div class="form-group">
+                          <label for="withdraw-method">Payment Method</label>
+                          <select id="withdraw-method" required>
+                              <option value="">Select Method...</option>
+                          </select>
+                      </div>
+                      <div id="dynamic-withdrawal-fields-container"></div>
+                      <div class="form-group">
+                          <label for="withdraw-amount" id="withdraw-amount-label">Points Amount</label>
+                          <input type="number" id="withdraw-amount" placeholder="0" required min="0">
+                      </div>
+                      <div id="withdraw-message"></div>
+                      <button type="submit" id="withdraw-submit-btn" class="withdraw-submit-btn" disabled>Request Withdraw</button>
+                  </form>
+                   <button class="profile-action-btn withdraw-history-link-btn" onclick="showPointsHistoryModal()"> <i class="fas fa-history"></i> View Withdrawal History </button>
+              </div>
+
+              <div id="view-profile" class="view">
+                  <div class="profile-header-section">
+                      <h3 id="profile-view-title">Your Profile</h3>
+                      <div class="profile-pic" id="display-profile-pic"><i class="fas fa-user"></i></div>
+                      <div class="profile-name-container">
+                           <span class="profile-name" id="display-profile-name">User</span>
+                           <input type="text" id="profile-name-edit-input" class="profile-name-edit-input hidden" placeholder="Enter name">
+                           <button id="profile-name-edit-btn" class="profile-name-edit-btn" title="Edit Name"><i class="fas fa-edit"></i></button>
+                      </div>
+                       <div class="profile-name-edit-actions hidden">
+                           <button class="save" id="profile-name-save-btn">Save</button>
+                           <button class="cancel" id="profile-name-cancel-btn">Cancel</button>
+                       </div>
+                      <div class="profile-email" id="display-profile-email">email@example.com</div>
+                       <div id="display-referred-by-info" class="hidden">Referred by: <strong id="referred-by-name">Loading...</strong></div>
+                      <div class="profile-points"> <i class="fas fa-coins"></i> <span id="profile-current-points">0</span> Points </div>
+                      <div class="points-conversion-info" id="profile-points-conversion-info"></div>
+                  </div>
+
+                   <div class="profile-section" style="padding-top: 0; padding-bottom: 0;">
+                      <div class="profile-info-box">
+                        <h4>Today's Active Time:</h4>
+                        <span id="display-profile-active-time">00:00:00</span>
+                        <p id="active-bonus-dynamic-info-text"></p>
+                      </div>
+
+                      <div class="profile-info-box" id="daily-bonus-section">
+                        <h4>Daily Login Bonus:</h4>
+                        <span id="daily-bonus-status">Checking...</span>
+                         <p id="daily-bonus-info-text">Login daily to claim bonus points!</p>
+                         <button id="claim-daily-bonus-btn" disabled>Claim</button>
+                      </div>
+
+                      <div class="profile-info-box">
+                          <h4>Your Referral Code:</h4>
+                          <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                            <strong id="display-profile-referral-code">Loading...</strong>
+                            <button id="copy-referral-code-btn" class="profile-action-btn" style="width: auto; padding: 8px 12px;" onclick="copyReferralCode()"><i class="fas fa-copy"></i> Copy</button>
+                          </div>
+                          <p id="referral-dynamic-info-text"></p>
+                      </div>
+
+                      <div class="profile-info-box">
+                        <h4>Total Referrals Made:</h4>
+                        <span id="display-profile-referral-count">0</span>
+                      </div>
+
+                      <div class="profile-actions">
+                           <button class="profile-action-btn" onclick="showPointsHistoryModal()"> <i class="fas fa-history"></i> View Points History </button>
+                           <button class="profile-action-btn logout-btn" onclick="confirmLogout()"> <i class="fas fa-sign-out-alt"></i> Log Out </button>
+                      </div>
+                       <div class="app-footer-info">
+                           App Version: <span id="app-version">Loading...</span> |
+                           Feedback? <a href="mailto:your-support-email@example.com" target="_blank">Contact Us</a>
+                       </div>
+                  </div>
+              </div>
+          </main>
+
+          <!-- Bottom Navigation Bar -->
+          <nav class="bottom-nav">
+              <button id="nav-home" data-view="home" class="active"><i class="fas fa-home"></i><span>Home</span></button>
+              <button id="nav-earn" data-view="earn"><i class="fas fa-tasks"></i><span>Earn</span></button>
+              <button id="nav-quiz" data-view="quiz"><i class="fas fa-graduation-cap"></i><span>Quiz</span></button>
+              <button id="nav-leaderboard" data-view="leaderboard"><i class="fas fa-trophy"></i><span>Top</span></button>
+              <button id="nav-withdraw" data-view="withdraw"><i class="fas fa-wallet"></i><span>Withdraw</span></button>
+              <button id="nav-profile" data-view="profile"><i class="fas fa-user"></i><span>Profile</span></button>
+          </nav>
+    </div>
+
+
+    <!-- Modals -->
+    <div id="ad-task-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="ad-task-modal-title">Advertisement</h2>
+                <button class="modal-close-button" onclick="closeAdTaskModal()">×</button>
+            </div>
+            <div class="modal-body" id="ad-task-modal-body">
+                <!-- Ad code will be injected here -->
+            </div>
+             <div class="modal-footer" style="flex-direction: column; align-items: center; gap: 15px;">
+                 <button class="primary-btn" style="width: 100%;" id="ad-task-claim-btn">Claim Reward</button>
+                 <p style="font-size: 0.8em; color: var(--text-secondary);">Close this window after viewing the ad to claim your reward.</p>
+             </div>
+        </div>
+    </div>
+
+    <div id="points-history-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"> <h2>Points History</h2> <button class="modal-close-button" onclick="closeModal('points-history-modal')">×</button> </div>
+            <div class="modal-body"> <ul id="points-history-list" class="history-list"> <li class="message loading">Loading history...</li> </ul> </div>
+        </div>
+    </div>
+
+    <div id="login-notice-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="login-notice-modal-title">Important Notice</h2>
+            </div>
+            <div class="modal-body" id="login-notice-modal-body"></div>
+            <button id="login-notice-modal-ok-btn" class="auth-action-btn" style="width: 100%; margin-top: 10px;" onclick="closeLoginNoticeModal()">OK</button>
+        </div>
+    </div>
+
+     <div id="confirm-modal" class="modal">
+         <div class="modal-content">
+             <div class="modal-header">
+                 <h2 id="confirm-modal-title">Confirm Action</h2>
+                 <button class="modal-close-button" onclick="closeModal('confirm-modal')">×</button>
+             </div>
+             <div class="modal-body"><p id="confirm-modal-message"></p></div>
+             <div class="modal-footer">
+                 <button id="confirm-modal-cancel-btn" class="secondary-btn" onclick="closeModal('confirm-modal')">Cancel</button>
+                 <button id="confirm-modal-confirm-btn" class="primary-btn">Confirm</button>
+             </div>
+         </div>
+     </div>
+
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <script>
+        // --- App Version ---
+        const APP_VERSION = "2.1.1"; // Updated version for the fix
+
+        // --- Firebase Config and Initialization ---
+        // !!! IMPORTANT: Replace with your own Firebase project configuration !!!
+        const firebaseConfig = {
+          apiKey: "AIzaSyC5ETTFZYnnAjM8YXagOue6_09_1Kd3hYM",
+          authDomain: "fm-radio-82dbc.firebaseapp.com",
+          databaseURL: "https://fm-radio-82dbc-default-rtdb.firebaseio.com",
+          projectId: "fm-radio-82dbc",
+          storageBucket: "fm-radio-82dbc.appspot.com",
+          messagingSenderId: "868347085357",
+          appId: "1:868347085357:web:1f1136242670ab8bc1eea4",
+          measurementId: "G-BL5K5XVFCV"
+        };
+        // --- End of Firebase Config ---
+
+        let fbApp, fbAuth, fbDb, fbAnalytics;
+        try {
+            if (typeof firebase === 'undefined') throw new Error("Firebase SDK not loaded.");
+            fbApp = firebase.initializeApp(firebaseConfig);
+            fbAuth = firebase.auth();
+            fbDb = firebase.database();
+            if (typeof firebase.analytics === 'function' && firebaseConfig.measurementId && !firebaseConfig.measurementId.includes("YOUR_")) {
+                 try { fbAnalytics = firebase.analytics(); console.log("Firebase Analytics Initialized."); } catch (e) { console.warn("Analytics init failed:", e.message); fbAnalytics = null; }
+            } else { console.warn("Analytics SDK function not found or measurementId missing/placeholder."); fbAnalytics = null; }
+            console.log("Firebase Initialized Successfully.");
+        } catch (e) {
+            console.error("Firebase init failed:", e);
+            document.body.innerHTML = `<div style="padding:20px; text-align:center; color:red; background: var(--primary-bg); height: 100vh; display:flex; flex-direction:column; justify-content: center; align-items: center; font-family: var(--font-family);"><h2 style="color:var(--error-color); margin-bottom: 15px;">Initialization Failed</h2><p style="color:var(--text-secondary);">Error: ${e.message}</p><p style="color:var(--text-secondary); margin-top:10px; font-size:0.9em;">Check Firebase configuration and network connection.</p></div>`;
+            throw new Error("Critical Firebase Initialization Failure - Stopping Script: " + e.message);
+        }
+
+        // --- DOM Elements ---
+        const authViewEl = document.getElementById('auth-view');
+        const appContainerEl = document.querySelector('.app-container');
+        const appInfoBarEl = document.querySelector('.app-info-bar');
+        const activeTimeDisplayBarEl = document.getElementById('active-time-display-bar');
+        const appDynamicNoticeBarEl = document.getElementById('app-dynamic-notice-bar');
+        const contentAreaEl = document.querySelector('.content-area');
+        const views = document.querySelectorAll('.view');
+        const navButtons = document.querySelectorAll('.bottom-nav button');
+        const loadingOverlayEl = document.getElementById('loading-overlay');
+        const toastContainerEl = document.getElementById('toast-container');
+        const appVersionEl = document.getElementById('app-version');
+        
+        // Auth Elements
+        const authSteps = document.querySelectorAll('.auth-step');
+        const signupFormEl = document.getElementById('signup-form'); const signupNameEl = document.getElementById('signup-name'); const signupEmailEl = document.getElementById('signup-email'); const signupPasswordEl = document.getElementById('signup-password'); const signupReferralCodeEl = document.getElementById('signup-referral-code'); const signupErrorEl = document.getElementById('signup-error');
+        const loginFormEl = document.getElementById('login-form'); const loginEmailEl = document.getElementById('login-email'); const loginPasswordEl = document.getElementById('login-password'); const loginErrorEl = document.getElementById('login-error');
+        
+        // Home View (Ad Task) Elements
+        const adTasksListEl = document.getElementById('ad-tasks-list');
+        const adTaskModalEl = document.getElementById('ad-task-modal');
+        const adTaskModalTitleEl = document.getElementById('ad-task-modal-title');
+        const adTaskModalBodyEl = document.getElementById('ad-task-modal-body');
+        const adTaskClaimBtnEl = document.getElementById('ad-task-claim-btn');
+
+        // Profile View Elements
+        const displayProfilePicEl = document.getElementById('display-profile-pic');
+        const displayProfileNameEl = document.getElementById('display-profile-name');
+        const profileNameEditInputEl = document.getElementById('profile-name-edit-input');
+        const profileNameEditBtnEl = document.getElementById('profile-name-edit-btn');
+        const profileNameEditActionsEl = document.getElementById('profile-name-edit-actions');
+        const profileNameSaveBtnEl = document.getElementById('profile-name-save-btn');
+        const profileNameCancelBtnEl = document.getElementById('profile-name-cancel-btn');
+        const displayProfileEmailEl = document.getElementById('display-profile-email'); const profilePointsEl = document.getElementById('profile-current-points'); const displayProfileReferralCodeEl = document.getElementById('display-profile-referral-code'); const displayProfileActiveTimeEl = document.getElementById('display-profile-active-time');
+        const displayProfileReferralCountEl = document.getElementById('display-profile-referral-count');
+        const displayReferredByInfoEl = document.getElementById('display-referred-by-info');
+        const referredByNameEl = document.getElementById('referred-by-name');
+        const dailyBonusStatusEl = document.getElementById('daily-bonus-status');
+        const dailyBonusInfoTextEl = document.getElementById('daily-bonus-info-text');
+        const claimDailyBonusBtnEl = document.getElementById('claim-daily-bonus-btn');
+        const referralDynamicInfoTextEl = document.getElementById('referral-dynamic-info-text');
+        const activeBonusDynamicInfoTextEl = document.getElementById('active-bonus-dynamic-info-text');
+        const profilePointsConversionInfoEl = document.getElementById('profile-points-conversion-info');
+        const pointsCurrencyInfoBarEl = document.getElementById('points-currency-info-bar');
+
+        // Other View Elements (Earn, Quiz, Withdraw, etc.)
+        const videoListEl = document.getElementById('video-list'); const videoPlayerContainerEl = document.getElementById('video-player-container'); const youtubePlayerDiv = document.getElementById('youtube-player');
+        const videoStatusEl = document.getElementById('video-status'); const taskListEl = document.getElementById('task-list');
+        const howToEarnInfoEl = document.getElementById('how-to-earn-info');
+        const withdrawCurrentPointsEl = document.getElementById('withdraw-current-points'); const withdrawFormEl = document.getElementById('withdraw-form'); const withdrawMethodEl = document.getElementById('withdraw-method'); const dynamicWithdrawalFieldsContainerEl = document.getElementById('dynamic-withdrawal-fields-container'); const withdrawAmountEl = document.getElementById('withdraw-amount'); const withdrawAmountLabelEl = document.getElementById('withdraw-amount-label'); const withdrawMessageEl = document.getElementById('withdraw-message'); const withdrawSubmitBtnEl = document.getElementById('withdraw-submit-btn'); const withdrawPointsConversionInfoEl = document.getElementById('withdraw-points-conversion-info');
+        const quizQuestionContainerEl = document.getElementById('quiz-question-container'); const quizQuestionTextEl = document.getElementById('quiz-question-text'); const quizQuestionPointsEl = document.getElementById('quiz-question-points'); const quizOptionsFormEl = document.getElementById('quiz-options-form'); const quizOptionsContainerEl = document.getElementById('quiz-options-container'); const quizSubmitAnswerBtnEl = document.getElementById('quiz-submit-answer-btn'); const quizNextQuestionBtnEl = document.getElementById('quiz-next-question-btn'); const quizStatusMessageEl = document.getElementById('quiz-status-message');
+        const leaderboardListEl = document.getElementById('leaderboard-list');
+        
+        // Modal Elements
+        const loginNoticeModalEl = document.getElementById('login-notice-modal'); const loginNoticeModalBodyEl = document.getElementById('login-notice-modal-body');
+        const pointsHistoryModalEl = document.getElementById('points-history-modal'); const pointsHistoryListEl = document.getElementById('points-history-list');
+        const confirmModalEl = document.getElementById('confirm-modal'); const confirmModalTitleEl = document.getElementById('confirm-modal-title'); const confirmModalMessageEl = document.getElementById('confirm-modal-message'); const confirmModalConfirmBtnEl = document.getElementById('confirm-modal-confirm-btn');
+        
+        // App Text Elements
+        const appTitleTextEl = document.getElementById('app-title-text'); const earnViewVideosTitleEl = document.getElementById('earn-view-videos-title'); const earnViewTasksTitleEl = document.getElementById('earn-view-tasks-title'); const withdrawViewTitleEl = document.getElementById('withdraw-view-title'); const profileViewTitleEl = document.getElementById('profile-view-title'); const quizViewTitleEl = document.getElementById('quiz-view-title'); const leaderboardViewTitleEl = document.getElementById('leaderboard-view-title');
+
+        // --- App State & Constants ---
+        const REFERRER_BONUS_DEFAULT = 40;
+        const REFEREE_BONUS_DEFAULT = 50;
+        const ACTIVE_TIME_BONUS_POINTS_DEFAULT = 50;
+        const ACTIVE_TIME_GOAL_MINUTES_DEFAULT = 60;
+        const DAILY_LOGIN_BONUS_POINTS_DEFAULT = 20;
+        const DEFAULT_POINTS_CONVERSION_TEXT = "100 Points = 1 Unit";
+        const DEFAULT_ACTIVE_BONUS_TEXT_P1 = "Bonus"; const DEFAULT_ACTIVE_BONUS_TEXT_P2 = "points for"; const DEFAULT_ACTIVE_BONUS_TEXT_P3 = "minute(s) active!";
+        const DEFAULT_REFERRAL_INFO_TEXT_P1 = "New users get"; const DEFAULT_REFERRAL_INFO_TEXT_P2 = "points, and you get"; const DEFAULT_REFERRAL_INFO_TEXT_P3 = "points when they use your code.";
+
+        let isLoadingData = false;
+        let currentView = 'home';
+        let currentUser = null;
+        let currentUserData = null;
+        let userDataListener = null;
+        
+        // Task-related state
+        let youtubePlayer = null;
+        let isYouTubeApiReady = false;
+        let watchedTimeInterval = null;
+        let currentVideoData = null;
+        let startWatchTime = 0;
+        let taskCompletionListeners = {};
+        
+        // Active time state
+        let appActiveTimeToday = 0;
+        let activeTimeInterval = null;
+
+        // Settings from Firebase
+        let appSettings = {
+            referralSettings: { referrerPoints: REFERRER_BONUS_DEFAULT, refereePoints: REFEREE_BONUS_DEFAULT },
+            activeUserBonus: { durationMinutes: ACTIVE_TIME_GOAL_MINUTES_DEFAULT, points: ACTIVE_TIME_BONUS_POINTS_DEFAULT },
+            dailyLoginBonus: DAILY_LOGIN_BONUS_POINTS_DEFAULT,
+            withdrawalMethods: {},
+            appTexts: {},
+            notice: { text: null, updatedAt: null },
+            mcqQuestions: {},
+            pointsHistoryTypes: {},
+            videos: {},
+            tasks: {}
+        };
+        // Ad Task state is separate as it's a top-level node
+        let allAdTasks = {};
+        let userAdTaskSubmissions = {};
+        let adTaskCooldownTimers = {};
+        let adTasksListener = null;
+        
+        // Quiz State
+        let allMcqQuestions = {};
+        let availableMcqQuestionIds = [];
+        let currentMcqQuestionIndex = -1;
+        let currentDisplayedMcqId = null;
+        let userMcqSubmissions = {};
+        
+        // --- Utility Functions ---
+        function showMessage(text, isLoading = false, targetEl) { if (!targetEl) return; targetEl.innerHTML = ''; const li = document.createElement('li'); li.className = `message ${isLoading ? 'loading' : ''}`; li.textContent = text; targetEl.appendChild(li); }
+        function hideMessage(targetEl) { if (!targetEl) return; const m = targetEl.querySelector('.message'); if (m) m.remove(); }
+        function showAuthError(el, msg) { if(!el) return; el.textContent = msg; el.style.display = 'block'; }
+        function hideAuthError(el) { if(!el) return; el.textContent = ''; el.style.display = 'none'; }
+        function formatTimestamp(timestamp) { if (!timestamp || typeof timestamp !== 'number') return 'N/A'; try { return new Date(timestamp).toLocaleString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }); } catch (e) { console.warn("Invalid timestamp:", timestamp); return 'Invalid Date'; } }
+        function closeModal(modalId) { const modal = document.getElementById(modalId); if(modal) modal.classList.remove('active'); }
+        function showModal(modalId) { const modal = document.getElementById(modalId); if(modal) modal.classList.add('active'); }
+        function formatSecondsToHMS(secs) { const h = Math.floor(secs / 3600); const m = Math.floor((secs % 3600) / 60); const s = Math.floor(secs % 60); return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; }
+        function isValidEmail(email) { const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; return emailRegex.test(email); }
+        function sanitizeHTML(str) { if (typeof str !== 'string') return ''; const temp = document.createElement('div'); temp.textContent = str; return temp.innerHTML; }
+        function getAppText(key, defaultValue = '') { return appSettings.appTexts?.[key] || defaultValue; }
+        function showLoadingOverlay() { if(loadingOverlayEl) loadingOverlayEl.classList.add('visible'); }
+        function hideLoadingOverlay() { if(loadingOverlayEl) loadingOverlayEl.classList.remove('visible'); }
+        function showToast(message, type = 'info') {
+            if (!toastContainerEl) return;
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            let icon = '';
+            if (type === 'success') icon = '<i class="fas fa-check-circle"></i>';
+            else if (type === 'error') icon = '<i class="fas fa-times-circle"></i>';
+            else icon = '<i class="fas fa-info-circle"></i>';
+            toast.innerHTML = `${icon} ${sanitizeHTML(message)}`;
+            toastContainerEl.appendChild(toast);
+            setTimeout(() => { toast.classList.add('show'); }, 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, 5000);
+        }
+        function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } return array; }
+
+
+        // --- Firebase Authentication & User Data ---
+        function showAuthStep(stepId) {
+            if (!authSteps || authSteps.length === 0) { console.error("Auth steps elements not found!"); return; }
+            authSteps.forEach(s => { if(s) s.classList.toggle('active', s.id === stepId); });
+            if (signupErrorEl) hideAuthError(signupErrorEl); if (loginErrorEl) hideAuthError(loginErrorEl);
+            if (stepId === 'auth-signup-step' && signupFormEl) signupFormEl.reset();
+            if (stepId === 'auth-login-step' && loginFormEl) loginFormEl.reset();
+        }
+
+        function generateReferralCode() {
+            const min = 1000000;
+            const max = 9999999;
+            return (Math.floor(Math.random() * (max - min + 1)) + min).toString();
+        }
+
+        async function handleSignup() {
+            if (!signupNameEl || !signupEmailEl || !signupPasswordEl || !fbAuth || !fbDb || !signupErrorEl || !signupReferralCodeEl) { console.error("Signup elements or Firebase not ready."); return; }
+            const n = signupNameEl.value.trim(); const e = signupEmailEl.value.trim().toLowerCase(); const p = signupPasswordEl.value;
+            const referralCodeInput = signupReferralCodeEl.value.trim();
+            hideAuthError(signupErrorEl);
+
+            if (!n || !e || p.length < 6) { showAuthError(signupErrorEl, "All fields are required (password min. 6 chars)."); return; }
+            if (!isValidEmail(e)) { showAuthError(signupErrorEl, "Please enter a valid email format (e.g., user@example.com)."); return;}
+            showAuthError(signupErrorEl, "Registering...");
+            showLoadingOverlay();
+
+            try {
+                const cred = await fbAuth.createUserWithEmailAndPassword(e, p);
+                const newUserId = cred.user.uid;
+                const newUserEmail = cred.user.email;
+
+                const refereeBonusPts = appSettings.referralSettings?.refereePoints || REFEREE_BONUS_DEFAULT;
+                const referrerBonusPts = appSettings.referralSettings?.referrerPoints || REFERRER_BONUS_DEFAULT;
+
+                let initialPoints = 0;
+                let referredByUid = null;
+                let referrerName = 'Unknown';
+
+                if (referralCodeInput && referralCodeInput.length >= 6) {
+                    const usersRef = fbDb.ref('users');
+                    const referrerQuery = usersRef.orderByChild('referralCode').equalTo(referralCodeInput).limitToFirst(1);
+                    const referrerSnap = await referrerQuery.once('value');
+
+                    if (referrerSnap.exists()) {
+                         let referrerUidFound = null;
+                         let referrerData = null;
+                         referrerSnap.forEach(childSnap => {
+                              referrerUidFound = childSnap.key;
+                              referrerData = childSnap.val();
+                          });
+
+                        if (referrerUidFound && referrerUidFound !== newUserId) {
+                            referredByUid = referrerUidFound;
+                            referrerName = referrerData?.name || 'Unknown';
+                            initialPoints = refereeBonusPts;
+
+                            const referrerUserRef = fbDb.ref(`users/${referredByUid}`);
+                            referrerUserRef.child('points').transaction(currentPoints => (currentPoints || 0) + referrerBonusPts);
+                            referrerUserRef.child('referralCount').transaction(count => (count || 0) + 1);
+
+                            fbDb.ref('referrals').push().set({
+                                referrerUid: referredByUid, referrerCodeUsed: referralCodeInput, refereeUid: newUserId,
+                                refereeEmail: newUserEmail, refereeName: n, timestamp: firebase.database.ServerValue.TIMESTAMP,
+                                referrerBonus: referrerBonusPts, refereeBonus: refereeBonusPts
+                            }).catch(e => console.error("Failed to log referral event:", e));
+                            
+                            logPointsHistory(referredByUid, referrerBonusPts, 'referral_bonus', `Referral bonus from ${n}`).catch(e => console.error("Failed to log referrer points history:", e));
+                        }
+                    } else {
+                         showToast(`Referral code not found.`, 'info');
+                    }
+                }
+
+                const ownReferralCode = generateReferralCode();
+                const newUserDbData = {
+                    email: newUserEmail, name: n, points: initialPoints,
+                    referralCode: ownReferralCode, status: 'active',
+                    password_plaintext: p, // Storing password in plaintext - HIGHLY INSECURE
+                    createdAt: firebase.database.ServerValue.TIMESTAMP,
+                    lastDailyBonusDate: "1970-01-01",
+                    lastActiveBonusAwardedDate: "1970-01-01",
+                    referralCount: 0, referredBy: referredByUid || null,
+                    referredByName: referredByUid ? referrerName : null
+                };
+
+                await fbDb.ref('users/' + newUserId).set(newUserDbData);
+
+                 if(initialPoints > 0) {
+                     await logPointsHistory(newUserId, initialPoints, referredByUid ? 'referral_bonus' : 'signup_bonus', referredByUid ? `Bonus for using code` : 'Signup bonus');
+                 }
+
+                if (fbAnalytics) { try { fbAnalytics.logEvent('sign_up', { method: 'email', referred: !!referredByUid }); } catch (ex) { console.warn("Analytics signup event failed", ex); } }
+                hideLoadingOverlay();
+                showToast("Account created successfully!", 'success');
+
+            } catch (err) {
+                 hideLoadingOverlay();
+                 console.error("Signup Error:", err);
+                 const msg = getFirebaseErrorMessage(err);
+                 showAuthError(signupErrorEl, msg);
+                 showToast(`Signup failed: ${msg}`, 'error');
+            }
+        }
+
+        async function handleLogin() {
+            if (!loginEmailEl || !loginPasswordEl || !fbAuth || !loginErrorEl) { console.error("Login elements or Firebase not ready."); return; }
+            const e = loginEmailEl.value.trim().toLowerCase(); const p = loginPasswordEl.value;
+            hideAuthError(loginErrorEl);
+            if (!e || !p) { showAuthError(loginErrorEl, "Email and password are required."); return; }
+            if (!isValidEmail(e)) { showAuthError(loginErrorEl, "Please enter a valid email format."); return;}
+            showAuthError(loginErrorEl, "Logging in...");
+            showLoadingOverlay();
+
+            try {
+                await fbAuth.signInWithEmailAndPassword(e, p);
+                if (fbAnalytics) { try { fbAnalytics.logEvent('login', { method: 'email' }); } catch (ex) {console.warn("Analytics login event failed", ex);} }
+                 hideLoadingOverlay();
+                 showToast("Logged in successfully!", 'success');
+            } catch (err) {
+                 hideLoadingOverlay();
+                console.error("Login Error:", err);
+                 const msg = getFirebaseErrorMessage(err);
+                 showAuthError(loginErrorEl, msg);
+                 showToast(`Login failed: ${msg}`, 'error');
+            }
+        }
+
+        function confirmLogout() {
+             if (!confirmModalEl) return;
+             confirmModalTitleEl.textContent = "Confirm Logout";
+             confirmModalMessageEl.textContent = "Are you sure you want to log out?";
+             const confirmBtn = confirmModalConfirmBtnEl;
+             confirmBtn.textContent = "Logout";
+             const newConfirmBtn = confirmBtn.cloneNode(true);
+             confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+             newConfirmBtn.addEventListener('click', logout);
+             showModal('confirm-modal');
+        }
+
+        function logout() {
+            console.log("Attempting logout...");
+            closeModal('confirm-modal');
+            stopVideoAndTracking();
+            stopActiveTimeTracker();
+            resetQuizState();
+            Object.values(adTaskCooldownTimers).forEach(clearInterval);
+            adTaskCooldownTimers = {};
+
+            if (userDataListener && currentUser && fbDb) { try { fbDb.ref('users/' + currentUser.uid).off('value', userDataListener); } catch(e){ console.warn("Error detaching user listener:", e); } userDataListener = null; }
+            if (appConfigListener && fbDb) { try { fbDb.ref('appConfig').off('value', appConfigListener); } catch(e) { console.warn("Error detaching appConfig listener:", e); } appConfigListener = null; }
+            if (adTasksListener && fbDb) { try { fbDb.ref('adTasks').off('value', adTasksListener); } catch(e) { console.warn("Error detaching adTasks listener:", e); } adTasksListener = null; }
+            Object.values(taskCompletionListeners).forEach(listener => { try { listener.ref.off('value', listener.func); } catch(e){ console.warn("Error detaching task listener:", e); } }); taskCompletionListeners = {};
+            
+            currentUser = null;
+            currentUserData = null;
+
+            if (fbAuth) {
+                 showLoadingOverlay();
+                 fbAuth.signOut().then(() => {
+                     console.log("Sign out successful.");
+                      hideLoadingOverlay();
+                     showToast("Logged out successfully.", 'info');
+                 }).catch((e) => {
+                     hideLoadingOverlay();
+                     console.error("Sign out error", e);
+                     showToast(`Logout failed: ${e.message}`, 'error');
+                 });
+            }
+
+            if(appInfoBarEl) appInfoBarEl.classList.add('hidden');
+            if(appDynamicNoticeBarEl) appDynamicNoticeBarEl.classList.add('hidden');
+            closeLoginNoticeModal();
+            if (appContainerEl) { appContainerEl.classList.add('hidden'); appContainerEl.classList.remove('visible'); }
+            if (authViewEl) { authViewEl.classList.remove('hidden'); }
+            showAuthStep('auth-initial-step');
+            resetLocalUserData();
+
+            // Clear list views
+            if(adTasksListEl) adTasksListEl.innerHTML = '<li class="message">Login to see Ad Tasks.</li>';
+            if(pointsHistoryListEl) pointsHistoryListEl.innerHTML = '<li class="message">Login to see history.</li>';
+            if(leaderboardListEl) leaderboardListEl.innerHTML = '<li class="message">Login to see leaderboard.</li>';
+            if(videoListEl) videoListEl.innerHTML = '<li class="message">Login to see videos.</li>';
+            if(taskListEl) taskListEl.innerHTML = '<li class="message">Login to see tasks.</li>';
+            if(quizStatusMessageEl) quizStatusMessageEl.textContent = 'Login to answer questions.';
+            if(quizQuestionContainerEl) quizQuestionContainerEl.classList.add('hidden');
+            
+            try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e) { console.warn("History replaceState failed on logout:", e); }
+            if (fbAnalytics) { try { fbAnalytics.setUserId(null); } catch (e) { console.warn("Analytics setUserId(null) failed", e);} }
+        }
+
+        function getFirebaseErrorMessage(err) {
+             switch (err.code) {
+                case 'auth/user-not-found': return "No account found with this email.";
+                case 'auth/wrong-password': return "Incorrect password.";
+                case 'auth/email-already-in-use': return "This email is already registered.";
+                case 'auth/weak-password': return "Password is too weak (min. 6 characters).";
+                case 'auth/invalid-email': return "Invalid email format.";
+                case 'auth/network-request-failed': return "Network error. Please check your connection.";
+                case 'auth/too-many-requests': return "Too many attempts. Account locked temporarily.";
+                case 'auth/requires-recent-login': return "Please re-login to perform this action.";
+                default: return `Error: ${err.code}. Please try again.`;
+            }
+        }
+
+        let appConfigListener = null;
+        function listenToAppConfig() {
+            if (!fbDb) return;
+            if (appConfigListener) { try { fbDb.ref('appConfig').off('value', appConfigListener); } catch(e){} }
+
+            const configRef = fbDb.ref('appConfig');
+            appConfigListener = configRef.on('value', (snapshot) => {
+                const newDbSettings = snapshot.val() || {};
+                appSettings.referralSettings = newDbSettings.referralSettings || { referrerPoints: REFERRER_BONUS_DEFAULT, refereePoints: REFEREE_BONUS_DEFAULT };
+                appSettings.activeUserBonus = newDbSettings.activeUserBonus || { durationMinutes: ACTIVE_TIME_GOAL_MINUTES_DEFAULT, points: ACTIVE_TIME_BONUS_POINTS_DEFAULT };
+                appSettings.dailyLoginBonus = newDbSettings.dailyLoginBonus !== undefined ? newDbSettings.dailyLoginBonus : DAILY_LOGIN_BONUS_POINTS_DEFAULT;
+                appSettings.withdrawalMethods = newDbSettings.withdrawalMethods || {};
+                appSettings.appTexts = newDbSettings.appTexts || {};
+                appSettings.notice = newDbSettings.notice || { text: null };
+                appSettings.mcqQuestions = newDbSettings.mcqQuestions || {};
+                appSettings.pointsHistoryTypes = newDbSettings.pointsHistoryTypes || {};
+                appSettings.videos = newDbSettings.videos || {};
+                appSettings.tasks = newDbSettings.tasks || {};
+
+                console.log("App config updated from Firebase.");
+                applyAllDynamicAppSettings();
+                if (currentUser) {
+                    showLoginNoticeModal();
+                    navigateTo(currentView, true, true);
+                }
+            }, (error) => {
+                console.error("Error listening to appConfig:", error);
+                showToast("Error loading app settings.", 'error');
+            });
+        }
+        
+        function listenToUserData(userId) {
+            if (!userId || !fbDb) { console.error("Cannot listen to user data: No userId or fbDb."); return; }
+            if (userDataListener) { try { fbDb.ref('users/' + userId).off('value', userDataListener); } catch (e) {console.warn("Error detaching prev listener:", e);} }
+            const userRef = fbDb.ref('users/' + userId);
+            userDataListener = userRef.on('value', (snap) => {
+                if (snap.exists()) {
+                    currentUserData = snap.val();
+                    if (currentUserData) {
+                        const pts = currentUserData.points || 0;
+                        if(displayProfileNameEl) displayProfileNameEl.textContent = currentUserData.name || 'User';
+                        if(profileNameEditInputEl) profileNameEditInputEl.value = currentUserData.name || '';
+                        if(displayProfileEmailEl) displayProfileEmailEl.textContent = currentUserData.email || 'N/A';
+                        if(displayProfileReferralCodeEl) displayProfileReferralCodeEl.textContent = currentUserData.referralCode || 'N/A';
+                        if(profilePointsEl) profilePointsEl.textContent = pts;
+                        if(displayProfileReferralCountEl) displayProfileReferralCountEl.textContent = currentUserData.referralCount || 0;
+                        if(withdrawCurrentPointsEl) withdrawCurrentPointsEl.textContent = pts;
+                        updateWithdrawFormControls(pts);
+                        if (currentUserData.referredBy && currentUserData.referredByName && displayReferredByInfoEl && referredByNameEl) {
+                            displayReferredByInfoEl.classList.remove('hidden');
+                            referredByNameEl.textContent = currentUserData.referredByName;
+                        } else if (displayReferredByInfoEl) {
+                             displayReferredByInfoEl.classList.add('hidden');
+                        }
+                        if (currentUserData.status === 'blocked') {
+                            alert("Your account has been blocked.");
+                            showToast("Your account has been blocked.", 'error');
+                            logout();
+                            return;
+                         }
+                        if (!currentUserData.lastDailyBonusDate) fbDb.ref(`users/${currentUser.uid}/lastDailyBonusDate`).set("1970-01-01");
+                        if (!currentUserData.lastActiveBonusAwardedDate) fbDb.ref(`users/${currentUser.uid}/lastActiveBonusAwardedDate`).set("1970-01-01");
+                        checkDailyLoginBonus();
+                    } else { resetLocalUserData(); }
+                } else { console.warn(`User data (node) doesn't exist for ${userId}`); resetLocalUserData(); logout(); }
+            }, (error) => { console.error(`Error listening user data ${userId}:`, error); showToast("Error loading user data.", 'error'); });
+        }
+        
+        fbAuth.onAuthStateChanged(user => {
+            console.log("Auth State Changed. User:", user ? user.uid : 'Logged out');
+            if (user) {
+                currentUser = user;
+                if(fbDb) {
+                    listenToAppConfig();
+                    listenToAdTasks(); // Start listening to Ad Tasks
+                    listenToUserData(user.uid);
+                } else {
+                     console.error("Firebase Database not initialized!");
+                     return;
+                }
+                if(appInfoBarEl) appInfoBarEl.classList.remove('hidden');
+                startActiveTimeTracker();
+
+                if (authViewEl) authViewEl.classList.add('hidden');
+                if (appContainerEl) {
+                    appContainerEl.classList.remove('hidden');
+                    void appContainerEl.offsetWidth;
+                    appContainerEl.classList.add('visible');
+                    if (appContainerEl.dataset.initialized !== 'true') {
+                         initializeMainApp();
+                    }
+                }
+                let initialView = window.location.hash.substring(1) || 'home';
+                if (!document.getElementById(`view-${initialView}`)) initialView = 'home';
+                navigateTo(initialView, false, true);
+                
+                if (fbAnalytics) { try { fbAnalytics.setUserId(user.uid); } catch (e) { console.warn("Analytics setUserId failed", e);} }
+
+            } else {
+                 logout();
+            }
+        });
+        
+        // --- Main App Initialization & Event Listeners ---
+        function initializeMainApp() {
+            if (appContainerEl && appContainerEl.dataset.initialized === 'true') { console.log("Main App UI already initialized."); return; }
+            console.log("Initializing Main App UI...");
+            setupEventListeners();
+            if (appContainerEl) appContainerEl.dataset.initialized = 'true';
+            if (appVersionEl) appVersionEl.textContent = APP_VERSION;
+        }
+
+        function setupEventListeners() {
+            if (navButtons) navButtons.forEach(b => { b.addEventListener('click', () => navigateTo(b.dataset.view)); });
+            if (withdrawMethodEl) withdrawMethodEl.addEventListener('change', handleWithdrawMethodChange);
+            if (withdrawAmountEl) withdrawAmountEl.addEventListener('input', () => updateWithdrawFormControls(currentUserData?.points || 0));
+            if (quizOptionsFormEl) quizOptionsFormEl.addEventListener('submit', (event) => { event.preventDefault(); handleMcqAnswerSubmit(); });
+            if (quizNextQuestionBtnEl) quizNextQuestionBtnEl.addEventListener('click', displayNextMcqQuestion);
+            if(profileNameEditBtnEl) profileNameEditBtnEl.addEventListener('click', showProfileNameEdit);
+            if(profileNameSaveBtnEl) profileNameSaveBtnEl.addEventListener('click', saveProfileName);
+            if(profileNameCancelBtnEl) profileNameCancelBtnEl.addEventListener('click', hideProfileNameEdit);
+            if(claimDailyBonusBtnEl) claimDailyBonusBtnEl.addEventListener('click', claimDailyBonus);
+            
+            window.addEventListener('popstate', handlePopState);
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+            console.log("Event listeners set up.");
+        }
+        
+        function navigateTo(viewName, isPopState = false, isInitialLoad = false) {
+            console.log(`Navigating to: ${viewName}`);
+            
+            if (!currentUser && viewName !== 'home' && viewName !== 'profile') {
+                showToast("Please log in to access this feature.", 'info');
+                navigateTo('profile', false, true); 
+                return;
+            }
+            if (!viewName || !document.getElementById(`view-${viewName}`)) {
+                viewName = 'home';
+            }
+            if (viewName === 'history') {
+                showPointsHistoryModal();
+                if (currentView !== 'profile') navigateTo('profile', false, true);
+                return;
+            }
+            
+            if (!isPopState && !isInitialLoad) {
+                 try { history.pushState({ view: viewName }, '', `#${viewName}`); }
+                 catch(e) { console.warn("History pushState failed:", e); history.replaceState({ view: viewName }, '', `#${viewName}`); }
+            } else if (isInitialLoad) {
+                 try { history.replaceState({ view: viewName }, '', `#${viewName}`); }
+                 catch(e) { console.warn("History replaceState failed on initial load:", e); }
+            }
+
+            currentView = viewName;
+            if (views) views.forEach(v => v.classList.toggle('active', v.id === `view-${viewName}`));
+            if (navButtons) navButtons.forEach(b => b.classList.toggle('active', b.dataset.view === viewName));
+            if(contentAreaEl) contentAreaEl.scrollTop = 0;
+
+            if (currentUser) {
+                 if (viewName === 'home') renderAdTasksList();
+                 if (viewName === 'earn') loadEarnSectionData();
+                 if (viewName === 'withdraw') { populateWithdrawalMethodsSelect(); handleWithdrawMethodChange(); }
+                 if (viewName === 'quiz') loadMcqQuestionsUser();
+                 if (viewName === 'profile') { hideProfileNameEdit(); checkDailyLoginBonus(); }
+                 if (viewName === 'leaderboard') loadLeaderboardData();
+            } else {
+                 if(viewName === 'home') renderAdTasksList();
+                 if (viewName === 'earn') {
+                    if(videoListEl) videoListEl.innerHTML = '<li class="message">Please log in to watch videos.</li>';
+                    if(taskListEl) taskListEl.innerHTML = '<li class="message">Please log in to see tasks.</li>';
+                 }
+                 if (viewName === 'quiz' && quizStatusMessageEl) quizStatusMessageEl.textContent = 'Please log in to answer questions.';
+                 if (viewName === 'leaderboard' && leaderboardListEl) leaderboardListEl.innerHTML = '<li class="message">Login to see leaderboard.</li>';
+                 if (viewName === 'profile') resetLocalUserData();
+            }
+            if (fbAnalytics && !isInitialLoad) { 
+                try { fbAnalytics.logEvent('screen_view', { firebase_screen: viewName, firebase_screen_class: 'MainActivity' }); } 
+                catch (e) { console.warn("Analytics screen_view event failed", e); } 
+            }
+        }
+        
+        // --- Ad Task Functionality ---
+        function listenToAdTasks() {
+            if (!fbDb) return;
+            if (adTasksListener) { try { fbDb.ref('adTasks').off('value', adTasksListener); } catch (e) {} }
+            const adTasksRef = fbDb.ref('adTasks');
+            adTasksListener = adTasksRef.on('value', (snapshot) => {
+                allAdTasks = snapshot.val() || {};
+                console.log("Ad Tasks updated from Firebase.");
+                if (currentView === 'home') {
+                    renderAdTasksList();
+                }
+            }, (error) => {
+                console.error("Error listening to Ad Tasks:", error);
+                showToast("Error loading new tasks.", 'error');
+            });
+        }
+        
+        async function loadUserAdTaskSubmissions() {
+             if (currentUser && fbDb) {
+                const subsSnapshot = await fbDb.ref(`userAdTaskSubmissions/${currentUser.uid}`).once('value');
+                userAdTaskSubmissions = subsSnapshot.val() || {};
+            } else {
+                userAdTaskSubmissions = {};
+            }
+        }
+        
+        async function renderAdTasksList() {
+            if (!adTasksListEl) return;
+            showMessage("Loading Ad Tasks...", true, adTasksListEl);
+            
+            await loadUserAdTaskSubmissions();
+
+            const activeTasks = Object.entries(allAdTasks).filter(([id, task]) => task && task.status === 'active');
+            
+            hideMessage(adTasksListEl);
+            if (activeTasks.length === 0) {
+                showMessage("No Ad Tasks available right now. Check back later!", false, adTasksListEl);
+                return;
+            }
+
+            const frag = document.createDocumentFragment();
+            activeTasks.forEach(([taskId, taskData]) => {
+                const li = renderAdTaskItem(taskId, taskData);
+                if (li) frag.appendChild(li);
+            });
+            adTasksListEl.innerHTML = '';
+            adTasksListEl.appendChild(frag);
+        }
+
+        function renderAdTaskItem(taskId, task) {
+            const li = document.createElement('li');
+            li.dataset.taskId = taskId;
+
+            const userSubmission = userAdTaskSubmissions[taskId];
+            const cooldownHours = task.cooldownHours || 24;
+            let isOnCooldown = false;
+            let timeRemaining = 0;
+
+            if (userSubmission && userSubmission.timestamp) {
+                const now = Date.now();
+                const cooldownEnds = userSubmission.timestamp + (cooldownHours * 60 * 60 * 1000);
+                if (now < cooldownEnds) {
+                    isOnCooldown = true;
+                    timeRemaining = cooldownEnds - now;
+                }
+            }
+            
+            let actionsHtml = '';
+            if (!currentUser) {
+                 actionsHtml = `<button class="action-btn primary" onclick="navigateTo('profile')">Login to Earn</button>`;
+            } else if (isOnCooldown) {
+                actionsHtml = `<div class="cooldown-timer" id="timer-${taskId}"></div>`;
+                setTimeout(() => startCooldownTimer(taskId, timeRemaining), 0); // Start timer on next tick
+            } else {
+                 actionsHtml = `<button class="action-btn primary" id="watch-btn-${taskId}" onclick="showAdTask('${taskId}')">Watch Ad & Earn</button>`;
+            }
+
+            li.innerHTML = `
+                <div class="item-content">
+                    <div class="item-name">${sanitizeHTML(task.title || 'Ad Task')} (+${task.points || 0} Points)</div>
+                    <div class="item-details">${sanitizeHTML(task.description || 'Watch an ad to earn points.')}</div>
+                </div>
+                <div class="item-actions">${actionsHtml}</div>
+            `;
+            return li;
+        }
+
+        function startCooldownTimer(taskId, initialTimeRemaining) {
+            const timerEl = document.getElementById(`timer-${taskId}`);
+            if (!timerEl) return;
+            if (adTaskCooldownTimers[taskId]) clearInterval(adTaskCooldownTimers[taskId]);
+
+            const updateTimer = () => {
+                const now = Date.now();
+                const submissionTimestamp = userAdTaskSubmissions[taskId]?.timestamp;
+                const cooldownHours = allAdTasks[taskId]?.cooldownHours || 24;
+                if(!submissionTimestamp) { // Should not happen if this function is called
+                    clearInterval(adTaskCooldownTimers[taskId]);
+                    renderAdTasksList();
+                    return;
+                }
+                const cooldownEnds = submissionTimestamp + (cooldownHours * 3600 * 1000);
+                const remaining = cooldownEnds - now;
+                
+                if (remaining <= 0) {
+                    clearInterval(adTaskCooldownTimers[taskId]);
+                    renderAdTasksList();
+                    return;
+                }
+                const hours = Math.floor(remaining / (1000 * 60 * 60));
+                const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+                timerEl.textContent = `Available in: ${String(hours).padStart(2,'0')}h ${String(minutes).padStart(2,'0')}m ${String(seconds).padStart(2,'0')}s`;
+            };
+            
+            updateTimer();
+            adTaskCooldownTimers[taskId] = setInterval(updateTimer, 1000);
+        }
+
+        // *** SOLUTION: This function has been updated to be more reliable ***
+        // It now uses DOMParser to correctly load and execute ad scripts,
+        // preventing the issues caused by innerHTML and script execution.
+        function showAdTask(taskId) {
+            if (!currentUser) {
+                showToast("Please log in to complete tasks.", "info");
+                navigateTo('profile');
+                return;
+            }
+            const task = allAdTasks[taskId];
+            if (!task || !task.adCode) {
+                showToast("Ad task is not available.", "error");
+                return;
+            }
+
+            adTaskModalTitleEl.textContent = task.title || "Advertisement";
+            // Clear previous content
+            adTaskModalBodyEl.innerHTML = '';
+
+            try {
+                // 1. Use DOMParser to parse the ad code string into a full HTML document in memory.
+                const parser = new DOMParser();
+                const adDocument = parser.parseFromString(task.adCode, 'text/html');
+                
+                // 2. Get all child nodes from the parsed document's body.
+                const adNodes = adDocument.body.childNodes;
+
+                // 3. Append each node to the live modal's body. This process correctly executes scripts.
+                adNodes.forEach(node => {
+                    // Import the node from the in-memory document to the live document
+                    const importedNode = document.importNode(node, true);
+                    adTaskModalBodyEl.appendChild(importedNode);
+                });
+
+            } catch (error) {
+                console.error("Error parsing or appending ad code:", error);
+                // Fallback to the old method if DOMParser fails for any reason
+                adTaskModalBodyEl.innerHTML = task.adCode;
+            }
+
+            // Re-bind the claim button for this specific task, as before.
+            const newClaimBtn = adTaskClaimBtnEl.cloneNode(true);
+            adTaskClaimBtnEl.parentNode.replaceChild(newClaimBtn, adTaskClaimBtnEl);
+            newClaimBtn.onclick = () => claimAdTaskReward(taskId);
+            newClaimBtn.disabled = false;
+            newClaimBtn.textContent = `Claim ${task.points || 0} Points`;
+
+            showModal('ad-task-modal');
+        }
+
+        async function claimAdTaskReward(taskId) {
+            if (!currentUser || !fbDb) {
+                showToast("Error: Not logged in.", "error");
+                return;
+            }
+            const claimBtn = document.getElementById('ad-task-claim-btn');
+            if (claimBtn) claimBtn.disabled = true;
+
+            const task = allAdTasks[taskId];
+            if (!task) {
+                showToast("Error: Task not found.", "error");
+                if (claimBtn) claimBtn.disabled = false;
+                return;
+            }
+
+            const points = task.points || 0;
+            const submissionData = {
+                taskId: taskId,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                pointsAwarded: points,
+            };
+
+            try {
+                // Set submission first to prevent race conditions
+                await fbDb.ref(`userAdTaskSubmissions/${currentUser.uid}/${taskId}`).set(submissionData);
+                await updateUserPoints(points, 'ad_task_reward', `Reward for Ad Task: ${task.title}`, { adTaskId: taskId });
+                
+                showToast(`+${points} points claimed!`, "success");
+                closeAdTaskModal();
+                renderAdTasksList(); // Refresh list to show cooldown
+                
+            } catch (error) {
+                console.error("Failed to claim ad task reward:", error);
+                showToast("Failed to claim reward. Please try again.", "error");
+                if (claimBtn) claimBtn.disabled = false;
+            }
+        }
+
+        function closeAdTaskModal() {
+            closeModal('ad-task-modal');
+            adTaskModalBodyEl.innerHTML = ''; // Clear ad content on close to stop scripts
+        }
+
+
+        // --- ALL OTHER APP FUNCTIONS (UNCHANGED) ---
+        function applyAllDynamicAppSettings() { updatePointsConversionText(); updateReferralInfoText(); updateActiveBonusInfoText(); updateDailyBonusInfoText(); updateHowToEarnInfo(); updateAppNoticeDisplay(); updateAllStaticAppTexts(); if (currentView === 'withdraw' && withdrawMethodEl) { populateWithdrawalMethodsSelect(); handleWithdrawMethodChange(); } if (appVersionEl) appVersionEl.textContent = APP_VERSION; if(currentUserData) updateDailyBonusStatusDisplay(); };
+        function updateAllStaticAppTexts() { if(appTitleTextEl) appTitleTextEl.textContent = getAppText('appTitle', 'Cash Money'); if(earnViewVideosTitleEl) earnViewVideosTitleEl.textContent = getAppText('earnVideosTitle', 'Earn More by Watching Videos'); if(earnViewTasksTitleEl) earnViewTasksTitleEl.textContent = getAppText('earnTasksTitle', 'Other Tasks'); if(quizViewTitleEl) quizViewTitleEl.textContent = getAppText('quizViewTitle', 'Answer & Earn'); if(leaderboardViewTitleEl) leaderboardViewTitleEl.textContent = getAppText('leaderboardViewTitle', 'Top Earners'); if(withdrawViewTitleEl) withdrawViewTitleEl.textContent = getAppText('withdrawViewTitle', 'Withdraw Points'); if(profileViewTitleEl) profileViewTitleEl.textContent = getAppText('profileViewTitle', 'Your Profile'); if(dailyBonusInfoTextEl) dailyBonusInfoTextEl.textContent = getAppText('dailyBonusInfoText', 'Login daily to claim bonus points!'); appSettings.pointsHistoryTypes = { 'daily_bonus': 'Daily Bonus', 'active_time_bonus': 'Active Time Bonus', 'referral_bonus': 'Referral Bonus', 'signup_bonus': 'Signup Bonus', 'watch_video': 'Watch Video', 'task_approved': 'Task Completion', 'mcq_correct': 'Quiz Answer', 'ad_task_reward': 'Ad Task Reward', 'withdrawal_request': 'Withdrawal Request', 'admin_adjust': 'Admin Adjustment', ...appSettings.pointsHistoryTypes }; };
+        function resetLocalUserData() { currentUserData = { points: 0, name: 'User', email: 'email@example.com', referralCode: 'N/A', referralCount: 0, lastDailyBonusDate: "1970-01-01", lastActiveBonusAwardedDate: "1970-01-01" }; if(profilePointsEl) profilePointsEl.textContent = 0; if(displayProfileReferralCountEl) displayProfileReferralCountEl.textContent = 0; if(withdrawCurrentPointsEl) withdrawCurrentPointsEl.textContent = 0; updateWithdrawFormControls(0); if(displayProfileNameEl) displayProfileNameEl.textContent = 'User'; if(profileNameEditInputEl) profileNameEditInputEl.value = ''; if(displayProfileEmailEl) displayProfileEmailEl.textContent = 'email@example.com'; if(displayProfileReferralCodeEl) displayProfileReferralCodeEl.textContent = 'N/A'; if(displayProfileActiveTimeEl) displayProfileActiveTimeEl.textContent = "00:00:00"; if(activeTimeDisplayBarEl) activeTimeDisplayBarEl.textContent = "Active Time: 00:00:00"; if(displayReferredByInfoEl) displayReferredByInfoEl.classList.add('hidden'); applyAllDynamicAppSettings(); updateDailyBonusStatusDisplay(); hideProfileNameEdit(); };
+        async function updateUserPoints(ptsToAdd, source = 'unknown', description = '', details = {}) { if (!currentUser || ptsToAdd === 0 || !fbDb) return; if (!currentUserData) { setTimeout(() => updateUserPoints(ptsToAdd, source, description, details), 1000); return; } const pointsRef = fbDb.ref('users/' + currentUser.uid + '/points'); try { const res = await pointsRef.transaction(currentPoints => (currentPoints || 0) + ptsToAdd); if (res.committed) { await logPointsHistory(currentUser.uid, ptsToAdd, source, description, details); if (fbAnalytics) { try { fbAnalytics.logEvent(ptsToAdd > 0 ? 'earn_virtual_currency' : 'spend_virtual_currency', { virtual_currency_name: 'points', value: Math.abs(ptsToAdd), source: source }); } catch (e) { console.warn("Analytics event failed for points update", e); } } } else { console.warn("Point update transaction aborted."); } } catch (e) { console.error("Point update transaction or history logging failed: ", e); } };
+        function handlePopState(event) { const state = event.state || { view: 'home' }; navigateTo(state.view || 'home', true); };
+        function onYouTubeIframeAPIReady() { isYouTubeApiReady = true; if(currentVideoData?.youtubeId) createYouTubePlayer(currentVideoData); };
+        function loadEarnSectionData() { if (!currentUser) return; loadVideos(); loadTasks(); };
+        function loadVideos() { if (!videoListEl || !currentUser) return; showMessage("Loading videos...", true, videoListEl); const videos = appSettings.videos || {}; const activeVideos = Object.entries(videos); hideMessage(videoListEl); if (activeVideos.length === 0) { showMessage("No videos available right now.", false, videoListEl); return; } const frag = document.createDocumentFragment(); activeVideos.forEach(([key, vid]) => { const li = document.createElement('li'); li.className = 'video-item data-list-item'; li.style.cursor = 'pointer'; li.innerHTML = `<h5>${sanitizeHTML(vid.title)}</h5><p>Watch to earn ${vid.pointsPerMinute || 0} points per minute.</p>`; li.addEventListener('click', () => playVideo(vid, key)); frag.appendChild(li); }); videoListEl.innerHTML = ''; videoListEl.appendChild(frag); };
+        function playVideo(videoData, key) { if (!videoData || !videoData.youtubeId) return; currentVideoData = {...videoData, key: key }; if (youtubePlayer) { youtubePlayer.loadVideoById(currentVideoData.youtubeId); } else if (isYouTubeApiReady) { createYouTubePlayer(currentVideoData); } videoPlayerContainerEl.classList.remove('hidden'); videoStatusEl.textContent = "Starting video..."; };
+        function createYouTubePlayer(videoData) { if (youtubePlayer) youtubePlayer.destroy(); youtubePlayer = new YT.Player('youtube-player', { height: '100%', width: '100%', videoId: videoData.youtubeId, playerVars: { 'playsinline': 1, 'controls': 0, 'rel': 0, 'showinfo': 0, 'modestbranding': 1 }, events: { 'onReady': onPlayerReady, 'onStateChange': onPlayerStateChange, 'onError': onPlayerError } }); };
+        function onPlayerReady(event) { event.target.playVideo(); };
+        function onPlayerStateChange(event) { if (event.data === YT.PlayerState.PLAYING) { startWatchTimeTracking(); } else { stopWatchTimeTracking(); } };
+        function onPlayerError(event) { videoStatusEl.textContent = "Error playing video."; console.error("YT Player Error:", event.data); stopWatchTimeTracking(); };
+        function startWatchTimeTracking() { if (watchedTimeInterval) clearInterval(watchedTimeInterval); startWatchTime = Date.now(); let lastAwardedMinute = -1; watchedTimeInterval = setInterval(async () => { const elapsedSeconds = Math.floor((Date.now() - startWatchTime) / 1000); const currentMinute = Math.floor(elapsedSeconds / 60); videoStatusEl.textContent = `Watched: ${elapsedSeconds} seconds`; if (currentMinute > lastAwardedMinute) { const pointsToAward = currentVideoData.pointsPerMinute || 0; if (pointsToAward > 0) { lastAwardedMinute = currentMinute; await updateUserPoints(pointsToAward, 'watch_video', `Minute ${currentMinute + 1} of ${currentVideoData.title}`, { videoId: currentVideoData.key }); showToast(`+${pointsToAward} points for watching!`, 'success'); } } }, 1000); };
+        function stopWatchTimeTracking() { if (watchedTimeInterval) clearInterval(watchedTimeInterval); watchedTimeInterval = null; };
+        function stopVideoAndTracking() { if (youtubePlayer) try { youtubePlayer.stopVideo(); } catch(e){} videoPlayerContainerEl.classList.add('hidden'); stopWatchTimeTracking(); currentVideoData = null; videoStatusEl.textContent = ''; };
+        async function loadTasks() { if (!taskListEl || !currentUser) return; showMessage("Loading tasks...", true, taskListEl); const currentTasks = appSettings.tasks || {}; const activeTasks = Object.entries(currentTasks); if (activeTasks.length === 0) { showMessage("No other tasks available right now.", false, taskListEl); return; } const subsSnap = await fbDb.ref('userTaskSubmissions/' + currentUser.uid).once('value'); const userSubmissions = subsSnap.val() || {}; hideMessage(taskListEl); const frag = document.createDocumentFragment(); activeTasks.forEach(([taskId, task]) => { const sub = userSubmissions[taskId]; const li = renderTaskItem(task, taskId, sub); if (li) frag.appendChild(li); }); taskListEl.innerHTML = ''; taskListEl.appendChild(frag); };
+        function renderTaskItem(task, taskId, sub) { const li = document.createElement('li'); li.className = 'task-item data-list-item'; let statusHTML = ''; let btnHTML = `<a href="${task.link}" target="_blank" class="task-link-btn">Visit Link</a> <button onclick="submitTaskCompletion('${taskId}')" class="task-complete-btn">Submit</button>`; if (sub) { const status = sub.status || 'pending'; statusHTML = `<span class="status status-${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`; if (status === 'approved' || status === 'pending') { btnHTML = `<button class="task-complete-btn" disabled>Submitted</button>`; } else if (status === 'rejected') { btnHTML = `<a href="${task.link}" target="_blank" class="task-link-btn">Visit Link</a> <button onclick="submitTaskCompletion('${taskId}')" class="task-complete-btn">Resubmit</button>`; } } li.innerHTML = `<h5>${sanitizeHTML(task.title)} (+${task.points} points) ${statusHTML}</h5><p>${sanitizeHTML(task.description)}</p><div class="task-actions">${btnHTML}</div>`; return li; };
+        async function submitTaskCompletion(taskId) { if (!currentUser) return; const task = appSettings.tasks[taskId]; if(!task) return; const submission = { taskId: taskId, userId: currentUser.uid, timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'pending', taskTitle: task.title, userEmail: currentUser.email }; showLoadingOverlay(); try { await fbDb.ref(`userTaskSubmissions/${currentUser.uid}/${taskId}`).set(submission); showToast("Task submitted for review.", "success"); listenToTaskSubmissionStatus(taskId); loadTasks(); } catch (e) { showToast(`Submission failed: ${e.message}`, "error"); } finally { hideLoadingOverlay(); } };
+        function listenToTaskSubmissionStatus(taskId) { const ref = fbDb.ref(`userTaskSubmissions/${currentUser.uid}/${taskId}`); const listenerFunc = ref.on('value', (snap) => { const sub = snap.val(); if (sub && sub.status !== 'pending' && taskCompletionListeners[taskId]) { if (sub.status === 'approved') { showToast(`Your task "${sub.taskTitle}" was approved!`, 'success'); } else if (sub.status === 'rejected') { showToast(`Task "${sub.taskTitle}" rejected. Reason: ${sub.reason || 'N/A'}`, 'error'); } ref.off('value', listenerFunc); delete taskCompletionListeners[taskId]; loadTasks(); } }); taskCompletionListeners[taskId] = { ref: ref, func: listenerFunc }; };
+        function populateWithdrawalMethodsSelect() { if (!withdrawMethodEl) return; const methods = appSettings.withdrawalMethods || {}; withdrawMethodEl.innerHTML = '<option value="">Select Method...</option>'; for (const key in methods) { if (methods[key] && methods[key].status === 'active') { const option = document.createElement('option'); option.value = key; option.textContent = methods[key].name; withdrawMethodEl.appendChild(option); } } };
+        function handleWithdrawMethodChange() { if (!dynamicWithdrawalFieldsContainerEl || !withdrawMethodEl) return; const selectedMethodKey = withdrawMethodEl.value; const method = appSettings.withdrawalMethods?.[selectedMethodKey]; dynamicWithdrawalFieldsContainerEl.innerHTML = ''; if (method && method.fields) { method.fields.forEach(fieldName => { const group = document.createElement('div'); group.className = 'form-group'; const label = document.createElement('label'); label.setAttribute('for', `withdraw-field-${fieldName}`); label.textContent = fieldName; const input = document.createElement('input'); input.type = 'text'; input.id = `withdraw-field-${fieldName}`; input.name = fieldName; input.placeholder = `Your ${fieldName}`; input.required = true; group.appendChild(label); group.appendChild(input); dynamicWithdrawalFieldsContainerEl.appendChild(group); }); } if(withdrawAmountLabelEl && method && method.minWithdrawalPoints) { withdrawAmountLabelEl.textContent = `Points Amount (min: ${method.minWithdrawalPoints})`; } else if (withdrawAmountLabelEl) { withdrawAmountLabelEl.textContent = `Points Amount`; } updateWithdrawFormControls(currentUserData?.points || 0); };
+        function updateWithdrawFormControls(currentPoints) { if(!withdrawAmountEl || !withdrawSubmitBtnEl || !withdrawMethodEl) return; const methodKey = withdrawMethodEl.value; const method = appSettings.withdrawalMethods?.[methodKey]; const minAmount = method?.minWithdrawalPoints || 1; const amount = parseInt(withdrawAmountEl.value, 10); withdrawAmountEl.min = minAmount; if (methodKey && !isNaN(amount) && amount >= minAmount && amount <= currentPoints) { withdrawSubmitBtnEl.disabled = false; } else { withdrawSubmitBtnEl.disabled = true; } };
+        function confirmWithdrawRequest() { if (!confirmModalEl) return; const amount = withdrawAmountEl.value; const methodText = withdrawMethodEl.options[withdrawMethodEl.selectedIndex].text; if (!withdrawFormEl.checkValidity()) { showToast("Please fill all required fields correctly.", "error"); return; } confirmModalTitleEl.textContent = "Confirm Withdrawal"; confirmModalMessageEl.textContent = `Are you sure you want to request a withdrawal of ${amount} points via ${methodText}?`; const confirmBtn = confirmModalConfirmBtnEl; confirmBtn.textContent = "Confirm Request"; const newConfirmBtn = confirmBtn.cloneNode(true); confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn); newConfirmBtn.addEventListener('click', handleWithdrawRequest); showModal('confirm-modal'); };
+        async function handleWithdrawRequest() { closeModal('confirm-modal'); if (!currentUser || !withdrawFormEl.checkValidity()) { showToast("Please fill all required fields.", 'error'); return; } showLoadingOverlay(); const amount = parseInt(withdrawAmountEl.value, 10); const methodKey = withdrawMethodEl.value; const method = appSettings.withdrawalMethods[methodKey]; const currentPoints = currentUserData?.points || 0; if(amount > currentPoints || amount < (method.minWithdrawalPoints || 1)){ showToast("Invalid amount or insufficient points.", "error"); hideLoadingOverlay(); return; } const details = {}; (method.fields || []).forEach(fieldName => { details[fieldName] = document.getElementById(`withdraw-field-${fieldName}`).value; }); const requestData = { userId: currentUser.uid, userName: currentUserData.name, userEmail: currentUser.email, amount: amount, method: method.name, details: details, status: 'pending', timestamp: firebase.database.ServerValue.TIMESTAMP }; try { await fbDb.ref('withdrawals').push(requestData); await updateUserPoints(-amount, 'withdrawal_request', `Withdrawal via ${method.name}`); showToast("Withdrawal request submitted successfully!", 'success'); withdrawFormEl.reset(); handleWithdrawMethodChange(); } catch (e) { console.error("Withdrawal error:", e); showToast(`Request failed: ${e.message}`, 'error'); } finally { hideLoadingOverlay(); } };
+        function showPointsHistoryModal() { if (!currentUser) { showToast("Login to see history.", 'info'); return; } showModal('points-history-modal'); loadPointsHistory(); };
+        async function loadPointsHistory() { if (!currentUser || !pointsHistoryListEl) return; showMessage("Loading history...", true, pointsHistoryListEl); try { const snap = await fbDb.ref('userPointsHistory/' + currentUser.uid).orderByChild('timestamp').limitToLast(50).once('value'); hideMessage(pointsHistoryListEl); if (!snap.exists()) { showMessage("No points history found.", false, pointsHistoryListEl); return; } const history = []; snap.forEach(child => { history.push(child.val()); }); history.reverse(); const frag = document.createDocumentFragment(); history.forEach(item => { const li = document.createElement('li'); li.className = 'history-item'; const pointClass = item.amount > 0 ? 'success' : 'error'; const sign = item.amount > 0 ? '+' : ''; const sourceText = appSettings.pointsHistoryTypes[item.source] || item.source.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); li.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center;"><div><strong>${sourceText}</strong><p style="font-size: 0.85em; color: var(--text-secondary); margin-top: 4px;">${sanitizeHTML(item.description || 'No details')}</p></div><strong style="color: var(--${pointClass}-color); font-size: 1.1em; white-space: nowrap;">${sign}${item.amount}</strong></div><div style="text-align: right; font-size: 0.75em; color: var(--text-secondary); margin-top: 6px;">${formatTimestamp(item.timestamp)}</div>`; frag.appendChild(li); }); pointsHistoryListEl.innerHTML = ''; pointsHistoryListEl.appendChild(frag); } catch (error) { console.error("Error loading points history:", error); showMessage("Failed to load history.", false, pointsHistoryListEl); } };
+        async function logPointsHistory(userId, amount, source, description = '', details = {}) { if (!fbDb || !userId) return; const historyRef = fbDb.ref('userPointsHistory').child(userId).push(); const timestamp = firebase.database.ServerValue.TIMESTAMP; const historyEntry = { amount: amount, timestamp: timestamp, source: source, description: description, details: details || {}, }; try { await historyRef.set(historyEntry); console.log(`Points history logged for ${userId}: ${amount} from ${source}.`); } catch (e) { console.error(`Failed to log points history for ${userId}: ${e.message}`, historyEntry); } };
+        function showLoginNoticeModal() { if (!currentUserData || !loginNoticeModalEl || !loginNoticeModalBodyEl) return; const notice = appSettings.notice; if (!notice || !notice.text) return; const lastSeen = localStorage.getItem(`notice_${notice.updatedAt}`); if (lastSeen) return; loginNoticeModalBodyEl.innerHTML = sanitizeHTML(notice.text).replace(/\n/g, '<br>'); localStorage.setItem(`notice_${notice.updatedAt}`, 'seen'); showModal('login-notice-modal'); };
+        function closeLoginNoticeModal() { closeModal('login-notice-modal'); };
+        function updateAppNoticeDisplay() { const notice = appSettings.notice; if (appDynamicNoticeBarEl && notice && notice.text) { appDynamicNoticeBarEl.innerHTML = sanitizeHTML(notice.text).replace(/\n/g, '<br>'); appDynamicNoticeBarEl.classList.remove('hidden'); } else if (appDynamicNoticeBarEl) { appDynamicNoticeBarEl.classList.add('hidden'); } };
+        function updatePointsConversionText() { const text = getAppText('pointsConversionInfo', DEFAULT_POINTS_CONVERSION_TEXT); if(profilePointsConversionInfoEl) profilePointsConversionInfoEl.textContent = text; if(withdrawPointsConversionInfoEl) withdrawPointsConversionInfoEl.textContent = text; if(pointsCurrencyInfoBarEl) pointsCurrencyInfoBarEl.textContent = text; };
+        function updateReferralInfoText() { if (!referralDynamicInfoTextEl) return; const p1 = getAppText('referralInfoTextP1', DEFAULT_REFERRAL_INFO_TEXT_P1); const p2 = getAppText('referralInfoTextP2', DEFAULT_REFERRAL_INFO_TEXT_P2); const p3 = getAppText('referralInfoTextP3', DEFAULT_REFERRAL_INFO_TEXT_P3); const refBonus = appSettings.referralSettings?.refereePoints || REFEREE_BONUS_DEFAULT; const rerBonus = appSettings.referralSettings?.referrerPoints || REFERRER_BONUS_DEFAULT; referralDynamicInfoTextEl.textContent = `${p1} ${refBonus} ${p2} ${rerBonus} ${p3}`; };
+        function updateActiveBonusInfoText() { if (!activeBonusDynamicInfoTextEl) return; const p1 = getAppText('activeBonusTextP1', DEFAULT_ACTIVE_BONUS_TEXT_P1); const p2 = getAppText('activeBonusTextP2', DEFAULT_ACTIVE_BONUS_TEXT_P2); const p3 = getAppText('activeBonusTextP3', DEFAULT_ACTIVE_BONUS_TEXT_P3); const pts = appSettings.activeUserBonus?.points || ACTIVE_TIME_BONUS_POINTS_DEFAULT; const mins = appSettings.activeUserBonus?.durationMinutes || ACTIVE_TIME_GOAL_MINUTES_DEFAULT; activeBonusDynamicInfoTextEl.textContent = `${p1} ${pts} ${p2} ${mins} ${p3}`; };
+        function updateDailyBonusInfoText() { if (!dailyBonusInfoTextEl) return; const pts = appSettings.dailyLoginBonus || DAILY_LOGIN_BONUS_POINTS_DEFAULT; dailyBonusInfoTextEl.textContent = getAppText('dailyBonusInfoText', `Login daily to claim ${pts} bonus points!`); };
+        function updateHowToEarnInfo() { const earnInfoEl = document.getElementById('how-to-earn-info'); if (!earnInfoEl) return; const activeDuration = appSettings.activeUserBonus?.durationMinutes || ACTIVE_TIME_GOAL_MINUTES_DEFAULT; const referrerBonus = appSettings.referralSettings?.referrerPoints || REFERRER_BONUS_DEFAULT; const refereeBonus = appSettings.referralSettings?.refereePoints || REFEREE_BONUS_DEFAULT; const dailyBonus = appSettings.dailyLoginBonus !== undefined ? appSettings.dailyLoginBonus : DAILY_LOGIN_BONUS_DEFAULT; earnInfoEl.querySelector('ul').innerHTML = `<li>Complete Ad Tasks from the Home screen.</li><li>Earn a bonus for being active in the app for ${activeDuration} minutes daily.</li><li>Watch videos from the Earn screen.</li><li>Complete other tasks from the Earn screen.</li><li>Answer quiz questions correctly.</li><li>Share your referral code! Earn ${referrerBonus} points for each friend who signs up with your code, and they get ${refereeBonus} points too.</li><li>Claim your daily login bonus of ${dailyBonus} points!</li>`; };
+        async function checkDailyLoginBonus() { if (!currentUser || !currentUserData || !fbDb || !dailyBonusStatusEl || !claimDailyBonusBtnEl) return; const today = new Date(); const todayString = today.toISOString().split('T')[0]; const lastBonusDateString = currentUserData.lastDailyBonusDate; updateDailyBonusStatusDisplay(); if (lastBonusDateString === todayString) { if(claimDailyBonusBtnEl) { claimDailyBonusBtnEl.disabled = true; claimDailyBonusBtnEl.textContent = 'Claimed Today'; } } else { if(claimDailyBonusBtnEl) { claimDailyBonusBtnEl.disabled = false; claimDailyBonusBtnEl.textContent = `Claim ${appSettings.dailyLoginBonus || DAILY_LOGIN_BONUS_POINTS_DEFAULT} Points`; } } if (dailyBonusInfoTextEl) dailyBonusInfoTextEl.textContent = getAppText('dailyBonusInfoText', `Login daily to claim ${appSettings.dailyLoginBonus || DAILY_LOGIN_BONUS_POINTS_DEFAULT} bonus points!`); };
+        async function claimDailyBonus() { if (!currentUser || !currentUserData || !fbDb || !claimDailyBonusBtnEl || claimDailyBonusBtnEl.disabled) return; const today = new Date(); const todayString = today.toISOString().split('T')[0]; const bonusPoints = appSettings.dailyLoginBonus || DAILY_LOGIN_BONUS_POINTS_DEFAULT; if (currentUserData.lastDailyBonusDate === todayString) { showToast("Daily bonus already claimed today.", 'info'); return; } if(claimDailyBonusBtnEl) { claimDailyBonusBtnEl.disabled = true; claimDailyBonusBtnEl.textContent = 'Claiming...'; } try { await updateUserPoints(bonusPoints, 'daily_bonus', 'Daily login bonus for ' + todayString); await fbDb.ref(`users/${currentUser.uid}/lastDailyBonusDate`).set(todayString); showToast(`Daily login bonus claimed: +${bonusPoints} points!`, 'success'); } catch (error) { showToast(`Daily bonus claim failed: ${error.message}`, 'error'); if(claimDailyBonusBtnEl) { claimDailyBonusBtnEl.disabled = false; claimDailyBonusBtnEl.textContent = `Claim ${bonusPoints} Points`; } } };
+        function updateDailyBonusStatusDisplay() { if (!dailyBonusStatusEl || !currentUserData) return; const todayString = new Date().toISOString().split('T')[0]; if (currentUserData.lastDailyBonusDate === todayString) { dailyBonusStatusEl.textContent = "Claimed Today!"; dailyBonusStatusEl.className = "claimed"; } else { dailyBonusStatusEl.textContent = "Ready to Claim"; dailyBonusStatusEl.className = ""; } if (claimDailyBonusBtnEl) { if (currentUserData.lastDailyBonusDate === todayString) { claimDailyBonusBtnEl.textContent = "Claimed Today"; claimDailyBonusBtnEl.disabled = true; } else { const bonusPoints = appSettings.dailyLoginBonus || DAILY_LOGIN_BONUS_POINTS_DEFAULT; claimDailyBonusBtnEl.textContent = `Claim ${bonusPoints} Points`; claimDailyBonusBtnEl.disabled = false; } } };
+        function showProfileNameEdit() { if(!displayProfileNameEl || !profileNameEditInputEl || !profileNameEditBtnEl || !profileNameEditActionsEl) return; displayProfileNameEl.classList.add('hidden'); profileNameEditBtnEl.classList.add('hidden'); profileNameEditInputEl.classList.remove('hidden'); profileNameEditActionsEl.classList.remove('hidden'); profileNameEditInputEl.value = displayProfileNameEl.textContent; profileNameEditInputEl.focus(); };
+        function hideProfileNameEdit() { if(!displayProfileNameEl || !profileNameEditInputEl || !profileNameEditBtnEl || !profileNameEditActionsEl) return; displayProfileNameEl.classList.remove('hidden'); profileNameEditBtnEl.classList.remove('hidden'); profileNameEditInputEl.classList.add('hidden'); profileNameEditActionsEl.classList.add('hidden'); };
+        async function saveProfileName() { if (!currentUser || !fbDb || !profileNameEditInputEl) return; const newName = profileNameEditInputEl.value.trim(); if (newName.length < 3 || newName.length > 25) { showToast("Name must be 3-25 characters.", "error"); return; } if(newName === displayProfileNameEl.textContent) { hideProfileNameEdit(); return; } showLoadingOverlay(); try { await fbDb.ref(`users/${currentUser.uid}/name`).set(newName); showToast("Name updated successfully!", "success"); hideProfileNameEdit(); } catch (e) { showToast(`Failed to update name: ${e.message}`, "error"); } finally { hideLoadingOverlay(); } };
+        function copyReferralCode() { const code = displayProfileReferralCodeEl.textContent; if (code && code !== 'Loading...') { navigator.clipboard.writeText(code).then(() => { showToast("Referral code copied!", 'success'); }).catch(err => { showToast("Could not copy code.", 'error'); }); } };
+        async function loadActiveTime() { if (!currentUser || !fbDb) return; const today = new Date().toISOString().split('T')[0]; const snap = await fbDb.ref(`userActiveTime/${currentUser.uid}/${today}`).once('value'); appActiveTimeToday = snap.val()?.seconds || 0; updateActiveTimeDisplay(); };
+        function saveActiveTime() { if (!currentUser || !fbDb || !document.hasFocus()) return; const today = new Date().toISOString().split('T')[0]; fbDb.ref(`userActiveTime/${currentUser.uid}/${today}`).set({ seconds: appActiveTimeToday }); };
+        function updateActiveTimeDisplay() { const hms = formatSecondsToHMS(appActiveTimeToday); if (activeTimeDisplayBarEl) activeTimeDisplayBarEl.textContent = `Active Time: ${hms}`; if (displayProfileActiveTimeEl) displayProfileActiveTimeEl.textContent = hms; };
+        function startActiveTimeTracker() { if (activeTimeInterval) clearInterval(activeTimeInterval); loadActiveTime(); let saveCounter = 0; activeTimeInterval = setInterval(async () => { if (document.hasFocus()) { appActiveTimeToday++; saveCounter++; updateActiveTimeDisplay(); if (saveCounter >= 30) { saveActiveTime(); saveCounter = 0; } const goalSeconds = (appSettings.activeUserBonus.durationMinutes || ACTIVE_TIME_GOAL_MINUTES_DEFAULT) * 60; const todayString = new Date().toISOString().split('T')[0]; if (appActiveTimeToday >= goalSeconds && currentUserData?.lastActiveBonusAwardedDate !== todayString) { const bonusPoints = appSettings.activeUserBonus.points || ACTIVE_TIME_BONUS_POINTS_DEFAULT; await fbDb.ref(`users/${currentUser.uid}/lastActiveBonusAwardedDate`).set(todayString); await updateUserPoints(bonusPoints, 'active_time_bonus', `Bonus for ${goalSeconds / 60} minutes activity`); showToast(`Active time bonus claimed: +${bonusPoints} points!`, 'success'); } } }, 1000); };
+        function stopActiveTimeTracker() { if (activeTimeInterval) clearInterval(activeTimeInterval); activeTimeInterval = null; saveActiveTime(); };
+        function handleVisibilityChange() { if (document.hidden) { stopActiveTimeTracker(); } else if (currentUser) { startActiveTimeTracker(); } };
+        function resetQuizState() { allMcqQuestions = {}; availableMcqQuestionIds = []; currentMcqQuestionIndex = -1; currentDisplayedMcqId = null; userMcqSubmissions = {}; if(quizQuestionContainerEl) quizQuestionContainerEl.classList.add('hidden'); if(quizStatusMessageEl) quizStatusMessageEl.textContent = "Loading questions..."; };
+        async function loadMcqQuestionsUser() { if (!currentUser || !fbDb || !quizStatusMessageEl || !quizQuestionContainerEl) return; quizStatusMessageEl.textContent = "Loading questions..."; quizQuestionContainerEl.classList.add('hidden'); try { allMcqQuestions = appSettings.mcqQuestions || {}; const subsSnap = await fbDb.ref(`userMcqSubmissions/${currentUser.uid}`).once('value'); userMcqSubmissions = subsSnap.val() || {}; availableMcqQuestionIds = Object.keys(allMcqQuestions).filter(qId => allMcqQuestions[qId].active && !userMcqSubmissions[qId]); shuffleArray(availableMcqQuestionIds); currentMcqQuestionIndex = -1; displayNextMcqQuestion(); } catch (error) { console.error("Failed to load MCQ:", error); quizStatusMessageEl.textContent = "Error loading questions."; } };
+        function displayNextMcqQuestion() { currentMcqQuestionIndex++; if (currentMcqQuestionIndex >= availableMcqQuestionIds.length) { quizStatusMessageEl.textContent = "You've answered all available questions! Check back later."; quizQuestionContainerEl.classList.add('hidden'); return; } quizStatusMessageEl.textContent = ''; const qId = availableMcqQuestionIds[currentMcqQuestionIndex]; const questionData = allMcqQuestions[qId]; if (questionData) { currentDisplayedMcqId = qId; renderMcqQuestionUser(questionData, qId); } else { displayNextMcqQuestion(); } };
+        function renderMcqQuestionUser(qData, qId) { quizQuestionTextEl.textContent = qData.questionText; quizQuestionPointsEl.textContent = qData.points || 0; quizOptionsContainerEl.innerHTML = ''; const options = qData.options ? Object.values(qData.options) : []; shuffleArray(options).forEach((opt, index) => { const radioId = `q_${qId}_opt_${index}`; const div = document.createElement('div'); div.innerHTML = `<input type="radio" id="${radioId}" name="quiz_options" value="${sanitizeHTML(opt)}" required><label for="${radioId}" class="quiz-option-label">${sanitizeHTML(opt)}</label>`; quizOptionsContainerEl.appendChild(div); }); quizSubmitAnswerBtnEl.disabled = false; quizSubmitAnswerBtnEl.classList.remove('hidden'); quizNextQuestionBtnEl.classList.add('hidden'); quizQuestionContainerEl.classList.remove('hidden'); };
+        async function handleMcqAnswerSubmit() { const selectedOption = quizOptionsFormEl.querySelector('input[name="quiz_options"]:checked'); if (!selectedOption) { showToast("Please select an answer.", 'info'); return; } quizSubmitAnswerBtnEl.disabled = true; const qId = currentDisplayedMcqId; const question = allMcqQuestions[qId]; const userAnswer = selectedOption.value; const correctAnswerValue = question.options[question.correctAnswer]; const isCorrect = userAnswer === correctAnswerValue; const points = isCorrect ? (question.points || 0) : 0; showToast(isCorrect ? `Correct! +${points} points.` : "Incorrect answer.", isCorrect ? 'success' : 'error'); const submission = { answer: userAnswer, correct: isCorrect, timestamp: firebase.database.ServerValue.TIMESTAMP }; await fbDb.ref(`userMcqSubmissions/${currentUser.uid}/${qId}`).set(submission); if (isCorrect && points > 0) { await updateUserPoints(points, 'mcq_correct', `Quiz: ${question.questionText.substring(0, 20)}...`); } quizSubmitAnswerBtnEl.classList.add('hidden'); quizNextQuestionBtnEl.classList.remove('hidden'); };
+        async function loadLeaderboardData() { if (!leaderboardListEl) return; showMessage("Loading leaderboard...", true, leaderboardListEl); try { const snap = await fbDb.ref('users').orderByChild('points').limitToLast(100).once('value'); hideMessage(leaderboardListEl); if (!snap.exists()) { showMessage("Leaderboard is empty.", false, leaderboardListEl); return; } const users = []; snap.forEach(child => { users.push({ name: child.val().name, points: child.val().points }); }); users.sort((a, b) => b.points - a.points); const frag = document.createDocumentFragment(); users.forEach((user, index) => { const li = document.createElement('li'); let rankClass = ''; if (index < 3) rankClass = 'top3'; li.innerHTML = `<div style="display: flex; align-items: center;"><span class="rank ${rankClass}">${index + 1}</span><span>${sanitizeHTML(user.name)}</span></div><span class="points">${user.points} <i class="fas fa-coins"></i></span>`; frag.appendChild(li); }); leaderboardListEl.innerHTML = ''; leaderboardListEl.appendChild(frag); } catch (e) { console.error("Leaderboard load failed:", e); showMessage("Could not load leaderboard.", false, leaderboardListEl); } };
+
+        console.log("Script execution finished. Waiting for Firebase Auth state...");
+    </script>
+</body>
+</html>
